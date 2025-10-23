@@ -2,95 +2,83 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
-*/
+/* Neobrutalist Design System - Semantic Data Discovery Platform */
+/* All colors MUST be HSL */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    /* Backgrounds - Warm cream palette */
+    --background: 35 100% 97%;           /* #FFF9F0 - Warm cream */
+    --foreground: 0 0% 10%;              /* #1A1A1A - Almost black */
 
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card: 35 100% 97%;
+    --card-foreground: 0 0% 10%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover: 35 100% 97%;
+    --popover-foreground: 0 0% 10%;
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    /* Primary - Coral Orange for CTAs */
+    --primary: 16 100% 76%;              /* #FFB399 - Coral orange */
+    --primary-foreground: 0 0% 10%;      /* Black text on orange */
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    /* Secondary - Lavender for inputs */
+    --secondary: 260 40% 93%;            /* #E8E4F3 - Lavender */
+    --secondary-foreground: 0 0% 10%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    /* Muted - Light yellow for secondary elements */
+    --muted: 45 100% 93%;                /* #FFF4D6 - Light yellow */
+    --muted-foreground: 0 0% 29%;        /* #4A4A4A - Dark gray */
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    /* Accent colors for nodes and highlights */
+    --accent-pink: 347 100% 70%;         /* #FF6B8A - Pink sparkle */
+    --accent-teal: 170 62% 68%;          /* #7FDBCA - Teal sparkle */
+    --accent-sage: 145 43% 69%;          /* #8FD6B0 - Sage green */
+    
+    /* Node type colors */
+    --node-process: 258 90% 66%;         /* #8B5CF6 - Purple */
+    --node-step: 217 91% 60%;            /* #3B82F6 - Blue */
+    --node-artifact: 160 84% 39%;        /* #10B981 - Green */
+    --node-ttp: 38 92% 50%;              /* #F59E0B - Orange */
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    /* Borders & Structural */
+    --border: 0 0% 0%;                   /* Pure black */
+    --input: 260 40% 93%;                /* Lavender */
+    --ring: 0 0% 0%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --radius: 0.75rem;
 
-    --radius: 0.5rem;
-
-    --sidebar-background: 0 0% 98%;
-
-    --sidebar-foreground: 240 5.3% 26.1%;
-
-    --sidebar-primary: 240 5.9% 10%;
-
-    --sidebar-primary-foreground: 0 0% 98%;
-
-    --sidebar-accent: 240 4.8% 95.9%;
-
-    --sidebar-accent-foreground: 240 5.9% 10%;
-
-    --sidebar-border: 220 13% 91%;
-
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    /* Shadows */
+    --shadow-offset: 4px 4px 0px 0px rgba(0, 0, 0, 1);
+    --shadow-soft: 0 4px 12px rgba(0, 0, 0, 0.08);
+    
+    /* Border width */
+    --border-width: 3px;
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
+    --background: 0 0% 10%;
+    --foreground: 35 100% 97%;
 
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
+    --card: 0 0% 15%;
+    --card-foreground: 35 100% 97%;
 
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
+    --popover: 0 0% 15%;
+    --popover-foreground: 35 100% 97%;
 
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
+    --primary: 16 100% 76%;
+    --primary-foreground: 0 0% 10%;
 
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 260 15% 20%;
+    --secondary-foreground: 35 100% 97%;
 
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
+    --muted: 0 0% 20%;
+    --muted-foreground: 0 0% 70%;
 
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --border: 0 0% 0%;
+    --input: 260 15% 20%;
+    --ring: 35 100% 97%;
   }
 }
 
@@ -100,6 +88,79 @@ All colors MUST be HSL.
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-sans antialiased;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+
+  h1 {
+    @apply text-6xl font-extrabold leading-tight tracking-tight;
+  }
+
+  h2 {
+    @apply text-3xl font-extrabold leading-snug;
+  }
+
+  h3 {
+    @apply text-2xl font-extrabold leading-normal;
+  }
+
+  h4 {
+    @apply text-xl font-semibold;
+  }
+
+  .subtitle {
+    @apply text-lg font-normal text-muted-foreground leading-relaxed;
+  }
+}
+
+@layer components {
+  .neo-card {
+    @apply bg-card border-[3px] border-border rounded-2xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)];
+  }
+
+  .neo-button {
+    @apply bg-primary border-[3px] border-border rounded-xl px-6 py-3 font-semibold text-primary-foreground 
+           shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all duration-150
+           hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)]
+           active:translate-x-[2px] active:translate-y-[2px] active:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)];
+  }
+
+  .neo-button-secondary {
+    @apply bg-muted border-[2px] border-border rounded-lg px-5 py-2.5 font-medium text-foreground
+           transition-all duration-150 hover:bg-muted/80;
+  }
+
+  .neo-input {
+    @apply bg-secondary border-[3px] border-border rounded-xl px-5 py-4 text-base
+           focus:outline-none focus:ring-2 focus:ring-border focus:border-border;
+  }
+
+  .sparkle {
+    @apply absolute animate-twinkle;
+  }
+
+  .node-selected {
+    @apply stroke-[4px] stroke-border;
+    filter: drop-shadow(0 0 8px hsl(var(--accent-pink)));
+  }
+}
+
+@layer utilities {
+  @keyframes twinkle {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.6; transform: scale(0.9); }
+  }
+
+  .animate-twinkle {
+    animation: twinkle 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse-border {
+    0%, 100% { border-color: hsl(var(--border)); }
+    50% { border-color: hsl(var(--accent-pink)); }
+  }
+
+  .animate-pulse-border {
+    animation: pulse-border 1.5s ease-in-out infinite;
   }
 }
