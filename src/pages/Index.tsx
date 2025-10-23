@@ -13,11 +13,25 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <Header />
+      <Header onDiscoveryPromptClick={(prompt) => {
+        // Handle discovery prompt clicks
+        console.log("Discovery prompt:", prompt);
+      }} />
       
-      <main className="flex-1 flex flex-col p-4 gap-4 overflow-hidden">
-        <div className="flex-1 flex gap-4 min-h-0">
-          {/* Main Graph Area */}
+      <main className="flex-1 flex p-4 gap-4 overflow-hidden">
+        {/* Left Sidebar - AI Assistant (Primary Interface) */}
+        <div className="w-[420px] flex flex-col gap-4 min-h-0">
+          <ChatAssistant 
+            selectedNodes={selectedNodes}
+            expanded={chatExpanded}
+            onToggle={() => setChatExpanded(!chatExpanded)}
+            onShowNodes={(nodeIds) => setSelectedNodes(nodeIds)}
+          />
+        </div>
+
+        {/* Main Content Area */}
+        <div className="flex-1 flex flex-col gap-4 min-h-0">
+          {/* Graph Explorer */}
           <div className="flex-1 min-w-0">
             <GraphExplorer 
               selectedNodes={selectedNodes}
@@ -25,27 +39,21 @@ const Index = () => {
             />
           </div>
 
-          {/* Right Sidebar - Analytics + Chat */}
-          <div className="w-[380px] flex flex-col gap-4 min-h-0">
-            <AnalyticsPanel 
-              selectedNodes={selectedNodes}
-              expanded={analyticsExpanded}
-              onToggle={() => setAnalyticsExpanded(!analyticsExpanded)}
-            />
-            
-            <ChatAssistant 
-              selectedNodes={selectedNodes}
-              expanded={chatExpanded}
-              onToggle={() => setChatExpanded(!chatExpanded)}
-            />
-          </div>
+          {/* Bottom Filter Bar */}
+          <FilterBar 
+            expanded={filterBarExpanded}
+            onToggle={() => setFilterBarExpanded(!filterBarExpanded)}
+          />
         </div>
 
-        {/* Bottom Filter Bar */}
-        <FilterBar 
-          expanded={filterBarExpanded}
-          onToggle={() => setFilterBarExpanded(!filterBarExpanded)}
-        />
+        {/* Right Sidebar - Analytics */}
+        <div className="w-[380px] flex flex-col gap-4 min-h-0">
+          <AnalyticsPanel 
+            selectedNodes={selectedNodes}
+            expanded={analyticsExpanded}
+            onToggle={() => setAnalyticsExpanded(!analyticsExpanded)}
+          />
+        </div>
       </main>
     </div>
   );

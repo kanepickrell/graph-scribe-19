@@ -7,6 +7,21 @@ interface AnalyticsPanelProps {
 }
 
 const AnalyticsPanel = ({ selectedNodes, expanded, onToggle }: AnalyticsPanelProps) => {
+  const autoInsights = [
+    {
+      icon: TrendingUp,
+      title: "3 automation scripts are 90% similar",
+      impact: "Save ~8 hours if merged",
+      color: "text-accent-pink"
+    },
+    {
+      icon: Users,
+      title: "Blue Team's C2 fix solves Red Team issue",
+      impact: "Share knowledge",
+      color: "text-node-step"
+    }
+  ];
+
   return (
     <div className={`neo-card flex flex-col transition-all duration-300 ${expanded ? "flex-1" : "h-16"}`}>
       {/* Header */}
@@ -14,7 +29,7 @@ const AnalyticsPanel = ({ selectedNodes, expanded, onToggle }: AnalyticsPanelPro
         className="p-4 border-b-[3px] border-border bg-secondary/30 flex items-center justify-between cursor-pointer"
         onClick={onToggle}
       >
-        <h3 className="font-extrabold text-lg">Analytics Panel</h3>
+        <h3 className="font-extrabold text-lg">Auto Insights</h3>
         <button className="p-1 hover:bg-muted rounded-lg transition-colors">
           {expanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
         </button>
@@ -23,6 +38,36 @@ const AnalyticsPanel = ({ selectedNodes, expanded, onToggle }: AnalyticsPanelPro
       {/* Content */}
       {expanded && (
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          {/* Auto-Generated Insights */}
+          <div>
+            <h4 className="font-bold text-sm mb-3 flex items-center gap-2">
+              <TrendingUp className="w-4 h-4" />
+              QUICK WINS
+            </h4>
+            <div className="space-y-3">
+              {autoInsights.map((insight, idx) => (
+                <div key={idx} className="neo-card p-3 bg-secondary/50">
+                  <div className="flex items-start gap-2 mb-2">
+                    <insight.icon className={`w-4 h-4 ${insight.color} mt-0.5`} />
+                    <div className="flex-1">
+                      <p className="text-xs font-semibold mb-1">{insight.title}</p>
+                      <p className="text-xs text-muted-foreground">💰 {insight.impact}</p>
+                    </div>
+                  </div>
+                  <button className="neo-button-secondary w-full text-xs">
+                    View Details
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Divider */}
+          {selectedNodes.length > 0 && (
+            <div className="border-t-2 border-border my-4" />
+          )}
+          
+          {/* Based on Selection */}
           {/* Selected Items */}
           <div>
             <h4 className="font-bold text-sm mb-2">Selected Items ({selectedNodes.length})</h4>

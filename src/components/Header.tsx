@@ -1,38 +1,100 @@
-import { Search, Settings, User } from "lucide-react";
+import { Search, Settings, User, Sparkles, Dices } from "lucide-react";
+import { useState } from "react";
 
-const Header = () => {
+interface HeaderProps {
+  onDiscoveryPromptClick: (prompt: string) => void;
+}
+
+const discoveryPrompts = [
+  "What's blocking our automation?",
+  "Show me data ready for ML training",
+  "Which teams work on similar problems?",
+  "Where are we repeating work?",
+  "Find automation opportunities",
+  "What caused these recent failures?",
+  "Show me cross-team collaboration potential",
+  "Identify bottlenecks in our processes"
+];
+
+const Header = ({ onDiscoveryPromptClick }: HeaderProps) => {
+  const [currentPrompts, setCurrentPrompts] = useState(discoveryPrompts.slice(0, 4));
+  const [searchFocused, setSearchFocused] = useState(false);
+
+  const shufflePrompts = () => {
+    const shuffled = [...discoveryPrompts].sort(() => Math.random() - 0.5);
+    setCurrentPrompts(shuffled.slice(0, 4));
+  };
+
   return (
-    <header className="border-b-[3px] border-border bg-card px-6 py-4">
+    <header className="border-b-[3px] border-border bg-card py-4 px-6">
       <div className="flex items-center justify-between">
         {/* Logo */}
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-primary border-[3px] border-border rounded-lg flex items-center justify-center font-extrabold text-xl">
-            S
+        <div className="flex items-center gap-3 relative">
+          <svg className="sparkle w-4 h-4 absolute -top-2 -left-2 rotate-12" viewBox="0 0 24 24" fill="hsl(var(--accent-pink))">
+            <path d="M12 0L14.5 9.5L24 12L14.5 14.5L12 24L9.5 14.5L0 12L9.5 9.5L12 0Z" />
+          </svg>
+          
+          <div className="w-12 h-12 rounded-2xl bg-primary border-[3px] border-border flex items-center justify-center shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+            <Sparkles className="w-6 h-6 text-primary-foreground" />
           </div>
           <div>
-            <h1 className="text-2xl font-extrabold leading-none">SemanticGraph</h1>
-            <p className="text-xs text-muted-foreground">Data Discovery Platform</p>
+            <h1 className="text-2xl font-extrabold leading-none">Discovery Platform</h1>
+            <p className="text-xs text-muted-foreground font-medium">AI-Powered Data Explorer</p>
           </div>
+          
+          <svg className="sparkle w-3 h-3 absolute -bottom-1 left-10 -rotate-12" viewBox="0 0 24 24" fill="hsl(var(--accent-teal))">
+            <path d="M12 0L14.5 9.5L24 12L14.5 14.5L12 24L9.5 14.5L0 12L9.5 9.5L12 0Z" />
+          </svg>
         </div>
 
-        {/* Search Bar */}
-        <div className="flex-1 max-w-xl mx-8">
+        {/* Search Bar with Discovery Prompts */}
+        <div className="flex-1 max-w-2xl mx-8">
           <div className="relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+            <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-muted-foreground z-10" />
             <input
               type="text"
-              placeholder="Search nodes, processes, artifacts..."
-              className="w-full neo-input pl-12"
+              placeholder="Ask me anything about your data..."
+              className="w-full neo-input pl-12 pr-12"
+              onFocus={() => setSearchFocused(true)}
+              onBlur={() => setTimeout(() => setSearchFocused(false), 200)}
             />
+            <button 
+              onClick={shufflePrompts}
+              className="absolute right-3 top-1/2 transform -translate-y-1/2 p-1.5 hover:bg-muted rounded-lg transition-colors"
+              title="Show different prompts"
+            >
+              <Dices className="w-4 h-4" />
+            </button>
           </div>
+          
+          {/* Discovery Prompts Dropdown */}
+          {searchFocused && (
+            <div className="absolute mt-2 neo-card p-3 bg-card z-50 w-[500px]">
+              <div className="text-xs font-semibold mb-2 text-muted-foreground flex items-center justify-between">
+                <span>🔍 Try asking:</span>
+              </div>
+              <div className="space-y-1">
+                {currentPrompts.map((prompt, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => onDiscoveryPromptClick(prompt)}
+                    className="w-full text-left text-sm px-3 py-2 rounded-lg hover:bg-secondary border-2 border-transparent hover:border-border transition-all"
+                  >
+                    • {prompt}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* User Menu */}
+        {/* Right Actions */}
         <div className="flex items-center gap-3">
-          <button className="p-2 hover:bg-secondary rounded-lg transition-colors">
-            <Settings className="w-5 h-5" />
+          <button className="neo-button-secondary flex items-center gap-2">
+            <Settings className="w-4 h-4" />
+            <span>Settings</span>
           </button>
-          <button className="p-2 hover:bg-secondary rounded-lg transition-colors">
+          <button className="w-10 h-10 rounded-xl bg-secondary border-2 border-border flex items-center justify-center hover:bg-muted transition-colors">
             <User className="w-5 h-5" />
           </button>
         </div>

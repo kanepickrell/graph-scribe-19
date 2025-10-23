@@ -156,11 +156,26 @@
   }
 
   @keyframes pulse-border {
-    0%, 100% { border-color: hsl(var(--border)); }
-    50% { border-color: hsl(var(--accent-pink)); }
+    0%, 100% { 
+      border-color: hsl(var(--border)); 
+      box-shadow: 0 0 0 0 hsla(var(--accent-pink), 0.4);
+    }
+    50% { 
+      border-color: hsl(var(--accent-pink)); 
+      box-shadow: 0 0 0 4px hsla(var(--accent-pink), 0.1);
+    }
   }
 
   .animate-pulse-border {
     animation: pulse-border 1.5s ease-in-out infinite;
+  }
+
+  @keyframes highlight-glow {
+    0%, 100% { filter: drop-shadow(0 0 4px hsl(var(--accent-pink))); }
+    50% { filter: drop-shadow(0 0 12px hsl(var(--accent-pink))); }
+  }
+
+  .ai-highlighted {
+    animation: highlight-glow 1.5s ease-in-out infinite;
   }
 }

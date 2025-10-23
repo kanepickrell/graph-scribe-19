@@ -29,7 +29,11 @@ const mockNodes: Node[] = [
 
 const GraphExplorer = ({ selectedNodes, onNodeSelect }: GraphExplorerProps) => {
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
+  const [heatMapMode, setHeatMapMode] = useState(false);
 
+  // Mock automation opportunities
+  const automationNodes = ["s1", "s2", "a2"];
+  
   const getNodeColor = (type: string) => {
     const colors = {
       process: "hsl(var(--node-process))",
@@ -38,6 +42,11 @@ const GraphExplorer = ({ selectedNodes, onNodeSelect }: GraphExplorerProps) => {
       ttp: "hsl(var(--node-ttp))",
     };
     return colors[type as keyof typeof colors];
+  };
+
+  const getNodeBadge = (nodeId: string) => {
+    if (automationNodes.includes(nodeId)) return "🤖";
+    return null;
   };
 
   const handleNodeClick = (nodeId: string) => {
@@ -68,13 +77,16 @@ const GraphExplorer = ({ selectedNodes, onNodeSelect }: GraphExplorerProps) => {
           </div>
 
           <div className="flex items-center gap-2">
-            <button className="neo-button-secondary flex items-center gap-2">
-              <Layers className="w-4 h-4" />
-              <span className="text-sm">Force Layout</span>
+            <button 
+              onClick={() => setHeatMapMode(!heatMapMode)}
+              className={`neo-button-secondary flex items-center gap-2 ${heatMapMode ? 'bg-accent-pink text-foreground' : ''}`}
+            >
+              <Palette className="w-4 h-4" />
+              <span className="text-sm">{heatMapMode ? '🔥 Heat Map' : 'Color by Type'}</span>
             </button>
             <button className="neo-button-secondary flex items-center gap-2">
-              <Palette className="w-4 h-4" />
-              <span className="text-sm">Color by Type</span>
+              <Layers className="w-4 h-4" />
+              <span className="text-sm">Layout</span>
             </button>
             <button className="p-2 hover:bg-muted rounded-lg transition-colors">
               <Maximize2 className="w-4 h-4" />
@@ -120,10 +132,23 @@ const GraphExplorer = ({ selectedNodes, onNodeSelect }: GraphExplorerProps) => {
                   strokeWidth={isSelected ? 4 : 2}
                   className={`transition-all ${isSelected ? "animate-pulse-border" : ""}`}
                   style={{
-                    filter: isHovered ? "brightness(1.2)" : "none",
-                    transform: isHovered ? "scale(1.1)" : "scale(1)",
+                    filter: isHovered ? "brightness(1.2) drop-shadow(0 0 8px hsl(var(--accent-pink)))" : isSelected ? "drop-shadow(0 0 6px hsl(var(--accent-pink)))" : "none",
+                    transform: isHovered ? "scale(1.1)" : isSelected ? "scale(1.05)" : "scale(1)",
                   }}
                 />
+                
+                {/* Automation Badge */}
+                {getNodeBadge(node.id) && (
+                  <text
+                    y={-radius - 5}
+                    textAnchor="middle"
+                    className="text-lg"
+                    style={{ pointerEvents: "none" }}
+                  >
+                    {getNodeBadge(node.id)}
+                  </text>
+                )}
+                
                 <text
                   y={radius + 20}
                   textAnchor="middle"
