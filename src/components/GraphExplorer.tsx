@@ -12,8 +12,6 @@ interface Node {
 interface GraphExplorerProps {
   selectedNodes: string[];
   onNodeSelect: (nodes: string[]) => void;
-  mode?: 'discovery' | 'engineering';
-  highlightedNodes?: string[];
 }
 
 // Mock data for demonstration
@@ -29,7 +27,7 @@ const mockNodes: Node[] = [
   { id: "t1", type: "ttp", label: "T1071 - C&C", x: 700, y: 300 },
 ];
 
-const GraphExplorer = ({ selectedNodes, onNodeSelect, mode = 'discovery', highlightedNodes = [] }: GraphExplorerProps) => {
+const GraphExplorer = ({ selectedNodes, onNodeSelect }: GraphExplorerProps) => {
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
   const [heatMapMode, setHeatMapMode] = useState(false);
 
@@ -117,8 +115,6 @@ const GraphExplorer = ({ selectedNodes, onNodeSelect, mode = 'discovery', highli
             const isHovered = hoveredNode === node.id;
             const radius = node.type === "process" ? 40 : 30;
 
-            const isHighlighted = highlightedNodes.includes(node.id);
-            
             return (
               <g
                 key={node.id}
@@ -134,12 +130,10 @@ const GraphExplorer = ({ selectedNodes, onNodeSelect, mode = 'discovery', highli
                   fillOpacity={isSelected ? 1 : 0.7}
                   stroke="hsl(var(--border))"
                   strokeWidth={isSelected ? 4 : 2}
-                  className={`transition-all ${isSelected ? "animate-pulse-border" : ""} ${isHighlighted ? "animate-highlight-glow" : ""}`}
+                  className={`transition-all ${isSelected ? "animate-pulse-border" : ""}`}
                   style={{
-                    filter: isHighlighted ? "drop-shadow(0 0 12px hsl(var(--accent-pink)))" : 
-                            isHovered ? "brightness(1.2) drop-shadow(0 0 8px hsl(var(--accent-pink)))" : 
-                            isSelected ? "drop-shadow(0 0 6px hsl(var(--accent-pink)))" : "none",
-                    transform: isHighlighted ? "scale(1.15)" : isHovered ? "scale(1.1)" : isSelected ? "scale(1.05)" : "scale(1)",
+                    filter: isHovered ? "brightness(1.2) drop-shadow(0 0 8px hsl(var(--accent-pink)))" : isSelected ? "drop-shadow(0 0 6px hsl(var(--accent-pink)))" : "none",
+                    transform: isHovered ? "scale(1.1)" : isSelected ? "scale(1.05)" : "scale(1)",
                   }}
                 />
                 

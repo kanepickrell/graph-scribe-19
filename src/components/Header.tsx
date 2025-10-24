@@ -1,12 +1,8 @@
 import { Search, Settings, User, Sparkles, Dices } from "lucide-react";
 import { useState } from "react";
-import ModeToggle from "./ModeToggle";
 
 interface HeaderProps {
   onDiscoveryPromptClick: (prompt: string) => void;
-  showModeToggle?: boolean;
-  currentMode?: 'discovery' | 'engineering';
-  onModeChange?: (mode: 'discovery' | 'engineering') => void;
 }
 
 const discoveryPrompts = [
@@ -20,7 +16,7 @@ const discoveryPrompts = [
   "Identify bottlenecks in our processes"
 ];
 
-const Header = ({ onDiscoveryPromptClick, showModeToggle, currentMode, onModeChange }: HeaderProps) => {
+const Header = ({ onDiscoveryPromptClick }: HeaderProps) => {
   const [currentPrompts, setCurrentPrompts] = useState(discoveryPrompts.slice(0, 4));
   const [searchFocused, setSearchFocused] = useState(false);
 
@@ -42,8 +38,8 @@ const Header = ({ onDiscoveryPromptClick, showModeToggle, currentMode, onModeCha
             <Sparkles className="w-6 h-6 text-primary-foreground" />
           </div>
           <div>
-            <h1 className="text-2xl font-extrabold leading-none">🔥 FORGE</h1>
-            <p className="text-xs text-muted-foreground font-medium">Visual Data Engineering</p>
+            <h1 className="text-2xl font-extrabold leading-none">Discovery Platform</h1>
+            <p className="text-xs text-muted-foreground font-medium">AI-Powered Data Explorer</p>
           </div>
           
           <svg className="sparkle w-3 h-3 absolute -bottom-1 left-10 -rotate-12" viewBox="0 0 24 24" fill="hsl(var(--accent-teal))">
@@ -51,10 +47,46 @@ const Header = ({ onDiscoveryPromptClick, showModeToggle, currentMode, onModeCha
           </svg>
         </div>
 
-        {/* Mode Toggle */}
-        {showModeToggle && currentMode && onModeChange && (
-          <ModeToggle currentMode={currentMode} onModeChange={onModeChange} />
-        )}
+        {/* Search Bar with Discovery Prompts */}
+        <div className="flex-1 max-w-2xl mx-8">
+          <div className="relative">
+            <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-muted-foreground z-10" />
+            <input
+              type="text"
+              placeholder="Ask me anything about your data..."
+              className="w-full neo-input pl-12 pr-12"
+              onFocus={() => setSearchFocused(true)}
+              onBlur={() => setTimeout(() => setSearchFocused(false), 200)}
+            />
+            <button 
+              onClick={shufflePrompts}
+              className="absolute right-3 top-1/2 transform -translate-y-1/2 p-1.5 hover:bg-muted rounded-lg transition-colors"
+              title="Show different prompts"
+            >
+              <Dices className="w-4 h-4" />
+            </button>
+          </div>
+          
+          {/* Discovery Prompts Dropdown */}
+          {searchFocused && (
+            <div className="absolute mt-2 neo-card p-3 bg-card z-50 w-[500px]">
+              <div className="text-xs font-semibold mb-2 text-muted-foreground flex items-center justify-between">
+                <span>🔍 Try asking:</span>
+              </div>
+              <div className="space-y-1">
+                {currentPrompts.map((prompt, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => onDiscoveryPromptClick(prompt)}
+                    className="w-full text-left text-sm px-3 py-2 rounded-lg hover:bg-secondary border-2 border-transparent hover:border-border transition-all"
+                  >
+                    • {prompt}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
 
         {/* Right Actions */}
         <div className="flex items-center gap-3">
