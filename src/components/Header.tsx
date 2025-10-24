@@ -33,15 +33,15 @@ const Header = ({ onDiscoveryPromptClick }: HeaderProps) => {
           <svg className="sparkle w-4 h-4 absolute -top-2 -left-2 rotate-12" viewBox="0 0 24 24" fill="hsl(var(--accent-pink))">
             <path d="M12 0L14.5 9.5L24 12L14.5 14.5L12 24L9.5 14.5L0 12L9.5 9.5L12 0Z" />
           </svg>
-          
+
           <div className="w-12 h-12 rounded-2xl bg-primary border-[3px] border-border flex items-center justify-center shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
             <Sparkles className="w-6 h-6 text-primary-foreground" />
           </div>
           <div>
-            <h1 className="text-2xl font-extrabold leading-none">Discovery Platform</h1>
-            <p className="text-xs text-muted-foreground font-medium">AI-Powered Data Explorer</p>
+            <h1 className="text-2xl font-extrabold leading-none">ProtoGraph</h1>
+            <p className="text-xs text-muted-foreground font-medium">Build Team Intelligence</p>
           </div>
-          
+
           <svg className="sparkle w-3 h-3 absolute -bottom-1 left-10 -rotate-12" viewBox="0 0 24 24" fill="hsl(var(--accent-teal))">
             <path d="M12 0L14.5 9.5L24 12L14.5 14.5L12 24L9.5 14.5L0 12L9.5 9.5L12 0Z" />
           </svg>
@@ -58,7 +58,7 @@ const Header = ({ onDiscoveryPromptClick }: HeaderProps) => {
               onFocus={() => setSearchFocused(true)}
               onBlur={() => setTimeout(() => setSearchFocused(false), 200)}
             />
-            <button 
+            <button
               onClick={shufflePrompts}
               className="absolute right-3 top-1/2 transform -translate-y-1/2 p-1.5 hover:bg-muted rounded-lg transition-colors"
               title="Show different prompts"
@@ -66,7 +66,7 @@ const Header = ({ onDiscoveryPromptClick }: HeaderProps) => {
               <Dices className="w-4 h-4" />
             </button>
           </div>
-          
+
           {/* Discovery Prompts Dropdown */}
           {searchFocused && (
             <div className="absolute mt-2 neo-card p-3 bg-card z-50 w-[500px]">

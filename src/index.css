@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -5,13 +6,13 @@
 /* Neobrutalist Design System - Semantic Data Discovery Platform */
 /* All colors MUST be HSL */
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
-
 @layer base {
   :root {
     /* Backgrounds - Warm cream palette */
-    --background: 35 100% 97%;           /* #FFF9F0 - Warm cream */
-    --foreground: 0 0% 10%;              /* #1A1A1A - Almost black */
+    --background: 35 100% 97%;
+    /* #FFF9F0 - Warm cream */
+    --foreground: 0 0% 10%;
+    /* #1A1A1A - Almost black */
 
     --card: 35 100% 97%;
     --card-foreground: 0 0% 10%;
@@ -20,31 +21,45 @@
     --popover-foreground: 0 0% 10%;
 
     /* Primary - Coral Orange for CTAs */
-    --primary: 16 100% 76%;              /* #FFB399 - Coral orange */
-    --primary-foreground: 0 0% 10%;      /* Black text on orange */
+    --primary: 16 100% 76%;
+    /* #FFB399 - Coral orange */
+    --primary-foreground: 0 0% 10%;
+    /* Black text on orange */
 
     /* Secondary - Lavender for inputs */
-    --secondary: 260 40% 93%;            /* #E8E4F3 - Lavender */
+    --secondary: 260 40% 93%;
+    /* #E8E4F3 - Lavender */
     --secondary-foreground: 0 0% 10%;
 
     /* Muted - Light yellow for secondary elements */
-    --muted: 45 100% 93%;                /* #FFF4D6 - Light yellow */
-    --muted-foreground: 0 0% 29%;        /* #4A4A4A - Dark gray */
+    --muted: 45 100% 93%;
+    /* #FFF4D6 - Light yellow */
+    --muted-foreground: 0 0% 29%;
+    /* #4A4A4A - Dark gray */
 
     /* Accent colors for nodes and highlights */
-    --accent-pink: 347 100% 70%;         /* #FF6B8A - Pink sparkle */
-    --accent-teal: 170 62% 68%;          /* #7FDBCA - Teal sparkle */
-    --accent-sage: 145 43% 69%;          /* #8FD6B0 - Sage green */
-    
+    --accent-pink: 347 100% 70%;
+    /* #FF6B8A - Pink sparkle */
+    --accent-teal: 170 62% 68%;
+    /* #7FDBCA - Teal sparkle */
+    --accent-sage: 145 43% 69%;
+    /* #8FD6B0 - Sage green */
+
     /* Node type colors */
-    --node-process: 258 90% 66%;         /* #8B5CF6 - Purple */
-    --node-step: 217 91% 60%;            /* #3B82F6 - Blue */
-    --node-artifact: 160 84% 39%;        /* #10B981 - Green */
-    --node-ttp: 38 92% 50%;              /* #F59E0B - Orange */
+    --node-process: 258 90% 66%;
+    /* #8B5CF6 - Purple */
+    --node-step: 217 91% 60%;
+    /* #3B82F6 - Blue */
+    --node-artifact: 160 84% 39%;
+    /* #10B981 - Green */
+    --node-ttp: 38 92% 50%;
+    /* #F59E0B - Orange */
 
     /* Borders & Structural */
-    --border: 0 0% 0%;                   /* Pure black */
-    --input: 260 40% 93%;                /* Lavender */
+    --border: 0 0% 0%;
+    /* Pure black */
+    --input: 260 40% 93%;
+    /* Lavender */
     --ring: 0 0% 0%;
 
     --radius: 0.75rem;
@@ -52,7 +67,7 @@
     /* Shadows */
     --shadow-offset: 4px 4px 0px 0px rgba(0, 0, 0, 1);
     --shadow-soft: 0 4px 12px rgba(0, 0, 0, 0.08);
-    
+
     /* Border width */
     --border-width: 3px;
   }
@@ -115,24 +130,29 @@
 
 @layer components {
   .neo-card {
-    @apply bg-card border-[3px] border-border rounded-2xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)];
+    @apply bg-card border-[3px] border-border rounded-2xl;
+    box-shadow: 4px 4px 0px 0px rgba(0, 0, 0, 1);
   }
 
   .neo-button {
-    @apply bg-primary border-[3px] border-border rounded-xl px-6 py-3 font-semibold text-primary-foreground 
-           shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all duration-150
-           hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)]
-           active:translate-x-[2px] active:translate-y-[2px] active:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)];
+    @apply bg-primary border-[3px] border-border rounded-xl px-6 py-3 font-semibold text-primary-foreground transition-all duration-150 hover:translate-x-[-2px] hover:translate-y-[-2px] active:translate-x-[2px] active:translate-y-[2px];
+    box-shadow: 4px 4px 0px 0px rgba(0, 0, 0, 1);
+  }
+
+  .neo-button:hover {
+    box-shadow: 6px 6px 0px 0px rgba(0, 0, 0, 1);
+  }
+
+  .neo-button:active {
+    box-shadow: 2px 2px 0px 0px rgba(0, 0, 0, 1);
   }
 
   .neo-button-secondary {
-    @apply bg-muted border-[2px] border-border rounded-lg px-5 py-2.5 font-medium text-foreground
-           transition-all duration-150 hover:bg-muted/80;
+    @apply bg-muted border-[2px] border-border rounded-lg px-5 py-2.5 font-medium text-foreground transition-all duration-150 hover:bg-muted/80;
   }
 
   .neo-input {
-    @apply bg-secondary border-[3px] border-border rounded-xl px-5 py-4 text-base
-           focus:outline-none focus:ring-2 focus:ring-border focus:border-border;
+    @apply bg-secondary border-[3px] border-border rounded-xl px-5 py-4 text-base focus:outline-none focus:ring-2 focus:ring-border focus:border-border;
   }
 
   .sparkle {
@@ -147,8 +167,17 @@
 
 @layer utilities {
   @keyframes twinkle {
-    0%, 100% { opacity: 1; transform: scale(1); }
-    50% { opacity: 0.6; transform: scale(0.9); }
+
+    0%,
+    100% {
+      opacity: 1;
+      transform: scale(1);
+    }
+
+    50% {
+      opacity: 0.6;
+      transform: scale(0.9);
+    }
   }
 
   .animate-twinkle {
@@ -156,12 +185,15 @@
   }
 
   @keyframes pulse-border {
-    0%, 100% { 
-      border-color: hsl(var(--border)); 
+
+    0%,
+    100% {
+      border-color: hsl(var(--border));
       box-shadow: 0 0 0 0 hsla(var(--accent-pink), 0.4);
     }
-    50% { 
-      border-color: hsl(var(--accent-pink)); 
+
+    50% {
+      border-color: hsl(var(--accent-pink));
       box-shadow: 0 0 0 4px hsla(var(--accent-pink), 0.1);
     }
   }
@@ -171,8 +203,15 @@
   }
 
   @keyframes highlight-glow {
-    0%, 100% { filter: drop-shadow(0 0 4px hsl(var(--accent-pink))); }
-    50% { filter: drop-shadow(0 0 12px hsl(var(--accent-pink))); }
+
+    0%,
+    100% {
+      filter: drop-shadow(0 0 4px hsl(var(--accent-pink)));
+    }
+
+    50% {
+      filter: drop-shadow(0 0 12px hsl(var(--accent-pink)));
+    }
   }
 
   .ai-highlighted {
