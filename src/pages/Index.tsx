@@ -3,9 +3,9 @@ import { toast } from "sonner";
 import Header from "@/components/Header";
 import GraphExplorer from "@/components/GraphExplorer";
 import LeftSidebar from "@/components/Leftsidebar";
-import NodeAnalyticsBar from "@/components/Nodeanalyticsbar";
+import ChatAssistant from "@/components/ChatAssistant";
+import GemDrawer from "@/components/GemDrawer";
 import GemSaveModal, { SavedGem } from "@/components/GemSaveModal";
-import { mockGraphData } from "@/lib/mockGraphData";
 
 const Index = () => {
   const [selectedNodes, setSelectedNodes] = useState<string[]>([]);
@@ -16,6 +16,7 @@ const Index = () => {
   const [selectedNodeForGem, setSelectedNodeForGem] = useState<any>(null);
   const [selectedNodesForProspect, setSelectedNodesForProspect] = useState<any[]>([]);
   const [modalMode, setModalMode] = useState<"gem" | "prospect">("gem");
+  const [activeTab, setActiveTab] = useState<"assistant" | "integrations" | "gems">("assistant");
 
   useEffect(() => {
     const savedMode = localStorage.getItem("graph-explorer-mode") as "mining" | "discovery";
@@ -26,10 +27,9 @@ const Index = () => {
     if (savedGems) {
       try {
         const parsed = JSON.parse(savedGems);
-        // Convert capturedAt strings back to Date objects
         const gemsWithDates = parsed.map((g: any) => ({
           ...g,
-          capturedAt: new Date(g.capturedAt)
+          capturedAt: new Date(g.capturedAt),
         }));
         setGems(gemsWithDates);
       } catch (e) {
@@ -45,23 +45,17 @@ const Index = () => {
 
   // Persist gems to localStorage whenever they change
   useEffect(() => {
-    if (gems.length > 0) {
-      localStorage.setItem("hidden-gems", JSON.stringify(gems));
-    }
+    localStorage.setItem("hidden-gems", JSON.stringify(gems));
   }, [gems]);
 
-  // Handle single gem capture (Discovery Mode)
   const handleCaptureGem = (nodeData: any) => {
-    console.log("💎 handleCaptureGem called with:", nodeData);
     setSelectedNodeForGem(nodeData);
     setSelectedNodesForProspect([]);
     setModalMode("gem");
     setGemModalOpen(true);
   };
 
-  // NEW: Handle prospect capture (Mining Mode - multi-node)
   const handleCaptureProspect = (nodesData: any[]) => {
-    console.log("⛏️ handleCaptureProspect called with:", nodesData);
     setSelectedNodesForProspect(nodesData);
     setSelectedNodeForGem(null);
     setModalMode("prospect");
@@ -69,25 +63,23 @@ const Index = () => {
   };
 
   const handleSaveGem = (gem: SavedGem) => {
-    console.log(`${gem.type === 'prospect' ? '⛏️' : '💎'} Saving:`, gem);
     setGems((prev) => [...prev, gem]);
-
     const icon = gem.type === "prospect" ? "⛏️" : "💎";
-    const title = gem.type === "prospect"
-      ? `Saved "${gem.label}" to Prospects!`
-      : `Saved "${gem.label}" to Hidden Gems!`;
-
+    const title =
+      gem.type === "prospect"
+        ? `Saved "${gem.label}" to Prospects!`
+        : `Saved "${gem.label}" to Hidden Gems!`;
     toast.success(`${icon} ${title}`, {
-      description: gem.type === "prospect"
-        ? `${gem.nodeCount} nodes captured for further investigation`
-        : "View it in the Saved Gems tab",
+      description:
+        gem.type === "prospect"
+          ? `${gem.nodeCount} nodes captured for further investigation`
+          : "View it in the Saved Gems tab",
     });
   };
 
   const handleDeleteGem = (gemId: string) => {
-    const gem = gems.find(g => g.id === gemId);
+    const gem = gems.find((g) => g.id === gemId);
     setGems((prev) => prev.filter((g) => g.id !== gemId));
-
     const type = gem?.type === "prospect" ? "Prospect" : "Gem";
     toast.info(`${type} removed from collection`);
   };
@@ -97,22 +89,15 @@ const Index = () => {
     setExplorerMode("discovery");
   };
 
-  const handleNodeClick = (nodeId: string) => {
-    // Focus on single node when clicked
-    setSelectedNodes([nodeId]);
-  };
-
-  // Handle exporting gems/prospects
   const handleExportGems = () => {
     const dataStr = JSON.stringify(gems, null, 2);
-    const dataBlob = new Blob([dataStr], { type: 'application/json' });
-    const url = URL.createObjectURL(dataBlob);
-    const link = document.createElement('a');
+    const blob = new Blob([dataStr], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
     link.href = url;
-    link.download = `protograph-gems-${new Date().toISOString().split('T')[0]}.json`;
+    link.download = `protograph-gems-${new Date().toISOString().split("T")[0]}.json`;
     link.click();
     URL.revokeObjectURL(url);
-
     toast.success("💎 Gems exported successfully!");
   };
 
@@ -134,47 +119,94 @@ const Index = () => {
       />
 
       <main className="flex-1 flex h-[calc(100vh-4rem)] p-4 gap-4 overflow-hidden">
-        {/* Left Sidebar - Tabbed Interface */}
-        <LeftSidebar
-          selectedNodes={selectedNodes}
-          onShowNodes={(nodeIds) => {
-            setSelectedNodes(nodeIds);
-            setExplorerMode("discovery");
-          }}
-          gems={gems}
-          onDeleteGem={handleDeleteGem}
-          onViewNode={handleViewNodeFromGem}
-        />
+        {/* Left Column – Graph Explorer */}
+        <div className="flex-[2] flex flex-col overflow-hidden rounded-xl">
+          <GraphExplorer
+            selectedNodes={selectedNodes}
+            onNodeSelect={setSelectedNodes}
+            mode={explorerMode}
+            onModeChange={setExplorerMode}
+            onCaptureGem={handleCaptureGem}
+          />
+        </div>
 
-        {/* Graph Explorer Area */}
-        <div className="flex-1 flex flex-col min-h-0 max-h-full overflow-hidden">
-          {/* Node Analytics Bar - Horizontal, above graph */}
-          {selectedNodes.length > 0 && (
-            <div className="flex-shrink-0">
-              {/* <NodeAnalyticsBar
+        {/* Right Column – Tabbed Assistant/Gems/Integrations */}
+        <div className="flex-[1] flex flex-col overflow-hidden rounded-xl bg-card border border-border">
+          {/* Tabs Header */}
+          <div className="flex items-center justify-between border-b border-border bg-muted/30 text-sm font-semibold">
+            <button
+              onClick={() => setActiveTab("assistant")}
+              className={`flex-1 py-3 border-b-2 ${activeTab === "assistant"
+                  ? "border-accent-pink text-foreground"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
+                }`}
+            >
+              <span className="flex items-center justify-center gap-2">
+                <span>💬</span> AI Assistant
+              </span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab("integrations")}
+              className={`flex-1 py-3 border-b-2 ${activeTab === "integrations"
+                  ? "border-accent-teal text-foreground"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
+                }`}
+            >
+              <span className="flex items-center justify-center gap-2">
+                <span>🔗</span> Integrations
+              </span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab("gems")}
+              className={`flex-1 py-3 border-b-2 relative ${activeTab === "gems"
+                  ? "border-accent-pink text-foreground"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
+                }`}
+            >
+              <span className="flex items-center justify-center gap-2">
+                <span>💎</span> Saved Gems
+              </span>
+              {gems.length > 0 && (
+                <span className="absolute right-3 top-2 w-5 h-5 bg-accent-pink text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-border">
+                  {gems.length}
+                </span>
+              )}
+            </button>
+          </div>
+
+          {/* Panel Content */}
+          <div className="flex-1 overflow-hidden">
+            {activeTab === "assistant" && (
+              <ChatAssistant
                 selectedNodes={selectedNodes}
-                data={mockGraphData}
-                onNodeClick={handleNodeClick}
-                onClose={() => setSelectedNodes([])}
-              /> */}
-            </div>
-          )}
+                onShowNodes={setSelectedNodes}
+                onToggle={() => { }}
+                expanded={true}
+              />
+            )}
 
-          {/* Graph Explorer - Takes remaining space */}
-          <div className="flex-1 min-h-0 overflow-hidden">
-            <GraphExplorer
-              selectedNodes={selectedNodes}
-              onNodeSelect={setSelectedNodes}
-              mode={explorerMode}
-              onModeChange={setExplorerMode}
-              onCaptureGem={handleCaptureGem}
-              onCaptureProspect={handleCaptureProspect}
-            />
+            {activeTab === "integrations" && (
+              <div className="neo-card h-full flex items-center justify-center text-sm text-muted-foreground">
+                <p>🔧 Integration analytics and data connectors coming soon...</p>
+              </div>
+            )}
+
+            {activeTab === "gems" && (
+              <GemDrawer
+                gems={gems}
+                onDeleteGem={handleDeleteGem}
+                onViewNode={handleViewNodeFromGem}
+                onExportGems={handleExportGems}
+                onClearAll={handleClearAllGems}
+              />
+            )}
           </div>
         </div>
       </main>
 
-      {/* Gem/Prospect Save Modal */}
+      {/* Gem Save Modal */}
       <GemSaveModal
         open={gemModalOpen}
         onClose={() => {

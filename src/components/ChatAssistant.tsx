@@ -136,10 +136,10 @@ const ChatAssistant = ({ selectedNodes, onShowNodes }: ChatAssistantProps) => {
   };
 
   const suggestedQuestions = [
-    "What caused these failures?",
-    "Find similar patterns",
-    "Compare with other teams",
-    "Show me related TTPs",
+    // "What caused these failures?",
+    // "Find similar patterns",
+    // "Compare with other teams",
+    // "Show me related TTPs",
   ];
 
   return (

@@ -97,8 +97,8 @@ const GemDrawer: React.FC<GemDrawerProps> = ({
                   <button
                     onClick={() => setActiveTab("all")}
                     className={`px-3 py-1 text-xs font-semibold rounded transition-colors ${activeTab === "all"
-                        ? "bg-card text-foreground shadow-sm"
-                        : "text-muted-foreground hover:text-foreground"
+                      ? "bg-card text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
                       }`}
                   >
                     All ({gems.length})
@@ -106,8 +106,8 @@ const GemDrawer: React.FC<GemDrawerProps> = ({
                   <button
                     onClick={() => setActiveTab("gems")}
                     className={`px-3 py-1 text-xs font-semibold rounded transition-colors flex items-center gap-1 ${activeTab === "gems"
-                        ? "bg-card text-foreground shadow-sm"
-                        : "text-muted-foreground hover:text-foreground"
+                      ? "bg-card text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
                       }`}
                   >
                     <Gem className="w-3 h-3" />
@@ -116,8 +116,8 @@ const GemDrawer: React.FC<GemDrawerProps> = ({
                   <button
                     onClick={() => setActiveTab("prospects")}
                     className={`px-3 py-1 text-xs font-semibold rounded transition-colors flex items-center gap-1 ${activeTab === "prospects"
-                        ? "bg-card text-foreground shadow-sm"
-                        : "text-muted-foreground hover:text-foreground"
+                      ? "bg-card text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
                       }`}
                   >
                     <Pickaxe className="w-3 h-3" />

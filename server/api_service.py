@@ -16,6 +16,7 @@ from pydantic import BaseModel
 from arango import ArangoClient
 from dotenv import load_dotenv
 import ollama
+from fastapi import Request
 
 # =========================================
 # ENVIRONMENT SETUP
@@ -242,24 +243,29 @@ def search_nodes(q: str):
 # =========================================
 # AI / ANALYTICS ENDPOINTS
 # =========================================
+chat_history: dict[str, list[dict]] = {}
+
 @app.post("/chat")
-async def chat(request: ChatRequest):
+async def chat(request: ChatRequest, req: Request):
     """
-    Conversational AI assistant for ProtoGraph.
-    Pulls live node + neighbor context from ArangoDB
-    and generates a natural-language summary via Ollama.
+    Conversational AI assistant for ProtoGraph with short-term memory.
+    Remembers tone and previous exchanges for more natural continuity.
     """
 
     # ----------------------------
-    # 1. Gather context from ArangoDB
+    # 1. Identify session
+    # ----------------------------
+    session_id = req.client.host  # You can replace with user auth/session ID
+    history = chat_history.get(session_id, [])
+
+    # ----------------------------
+    # 2. Pull graph context from ArangoDB
     # ----------------------------
     context_text = ""
     if db and request.context:
         node_ids = [c.strip() for c in request.context.split(",") if c.strip()]
-        node_data = []
-        neighbor_data = []
+        node_data, neighbor_data = [], []
 
-        # Fetch each selected node
         for node_id in node_ids:
             node_result = list(db.aql.execute(
                 "RETURN DOCUMENT(@id)", bind_vars={"id": node_id}
@@ -267,7 +273,6 @@ async def chat(request: ChatRequest):
             if node_result and node_result[0]:
                 node_data.append(node_result[0])
 
-        # Fetch 1-hop neighbors for the first node (you can easily expand to all)
         if node_data:
             neighbor_result = list(db.aql.execute(
                 "FOR v, e IN 1..1 ANY @id edges RETURN DISTINCT {node: v, edge: e}",
@@ -275,8 +280,6 @@ async def chat(request: ChatRequest):
             ))
             neighbor_data.extend(neighbor_result)
 
-        # Summarize the retrieved data in readable form
-        if node_data:
             node_summaries = [
                 f"{n.get('label','unknown')} ({n.get('type','node type unknown')}) "
                 f"in cluster {n.get('cluster','?')} "
@@ -298,17 +301,65 @@ async def chat(request: ChatRequest):
                 + (f". They connect to nearby nodes such as {', '.join(neighbor_summaries[:5])}."
                    if neighbor_summaries else ".")
             )
-
     else:
         context_text = "No graph context was provided."
+
+    # ----------------------------
+    # 3. Build prompt with reinforced tone guidance
+    # ----------------------------
+    system_msg = (
+        "You are Proto, an AI analyst embedded in ProtoGraph. "
+        "Speak naturally and conversationally — no markdown, bullet lists, or tables. "
+        "Keep responses short and insightful, explaining what relationships mean and why they matter. "
+        "Stay consistent with prior tone and style throughout the session."
+    )
+
+    user_prompt = (
+        f"Context summary: {context_text}\n\n"
+        f"User question: {request.message}\n\n"
+        "Respond in plain language (2–5 short paragraphs). "
+        "Do not use markdown formatting like **bold**, lists, or code blocks. "
+        "Focus on meaningful insights and next-step reasoning."
+    )
+
+    # ----------------------------
+    # 4. Assemble conversation with history
+    # ----------------------------
+    messages = [
+        {"role": "system", "content": system_msg},
+        *history,
+        {"role": "user", "content": user_prompt},
+    ]
+
+    # ----------------------------
+    # 5. Generate response
+    # ----------------------------
+    try:
+        response = ollama_client.chat(model=OLLAMA_MODEL, messages=messages)
+        reply = response["message"]["content"]
+
+        # Update short-term history (keep last 10 exchanges)
+        chat_history[session_id] = (history + [
+            {"role": "user", "content": user_prompt},
+            {"role": "assistant", "content": reply},
+        ])[-10:]
+
+    except Exception as e:
+        reply = f"There was a problem communicating with the AI model: {str(e)}"
+
+    # ----------------------------
+    # 6. Return plain response
+    # ----------------------------
+    return {"reply": reply}
+
 
     # ----------------------------
     # 2. Build conversational prompt
     # ----------------------------
     system_msg = (
-        "You are Proto, an AI analyst embedded in ProtoGraph. "
+        "You are an AI analyst embedded in ProtoGraph. "
         "Speak naturally and conversationally — no markdown or tables. "
-        "Focus on explaining what the graph relationships mean, why they matter, "
+        "Focus on explaining what the graph relationships mean, how they might influence each other "
         "and what the user could consider next. "
         "Be concise and insightful, like you're discussing it with a teammate."
     )
@@ -316,7 +367,7 @@ async def chat(request: ChatRequest):
     user_prompt = (
         f"Context summary: {context_text}\n\n"
         f"User question: {request.message}\n\n"
-        "Respond in plain language (2–5 short paragraphs). "
+        "Respond in plain language (1–2 short paragraphs). "
         "If the user seems to ask 'tell me about', describe key patterns and significance. "
         "If the question implies action, suggest next steps briefly."
     )

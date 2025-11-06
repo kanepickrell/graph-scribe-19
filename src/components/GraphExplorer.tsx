@@ -687,7 +687,7 @@ const GraphExplorer: React.FC<GraphExplorerProps> = ({
                                 {/* Helper text */}
                                 {!explorationMode && !lastClickedNode && (
                                     <span className="text-xs text-muted-foreground">
-                                        ← Select node, then click Explore Neighbors
+                                        {/* ← Select node, then click Explore Neighbors */}
                                     </span>
                                 )}
                                 {!explorationMode && lastClickedNode && (
@@ -709,7 +709,7 @@ const GraphExplorer: React.FC<GraphExplorerProps> = ({
                                 <h3 className="font-extrabold text-xl">Discovery Mode</h3>
                             )}
                             {mode === 'mining' && (
-                                <h3 className="font-extrabold text-xl">Prospector Mode</h3>
+                                <h3 className="font-extrabold text-xl">Prospector Mode (Future Feature)</h3>
                             )}
                         </div>
 
