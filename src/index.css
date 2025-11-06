@@ -1,10 +1,19 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Neobrutalist Design System - Semantic Data Discovery Platform */
-/* All colors MUST be HSL */
+
+/* Custom Graphin overrides */
+.graphin-container {
+  width: 100%;
+  height: 100%;
+}
+
+.graphin-components {
+  font-family: 'Inter', sans-serif;
+}
 
 @layer base {
   :root {
