@@ -1,7 +1,16 @@
-import React, { useEffect, useRef, useState, useMemo } from "react";
-import { Graphin } from "@antv/graphin";
+import React, { useEffect, useState, useCallback, useRef } from "react";
+import ReactFlow, {
+    MiniMap,
+    Controls,
+    Background,
+    useNodesState,
+    useEdgesState,
+    Node,
+    Edge,
+} from "reactflow";
+import "reactflow/dist/style.css";
+import * as d3 from "d3-force";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { notifyPowerBIUpdate } from "@/lib/powerbiSync";
 
 import {
@@ -77,61 +86,57 @@ const GraphExplorer: React.FC<GraphExplorerProps> = ({
     onModeChange,
     onCaptureGem,
 }) => {
-    const graphRef = useRef<any>(null);
-    const containerRef = useRef<any>(null);
-    const hullLayerRef = useRef<SVGGElement>(null);
-    const [layout, setLayout] = useState("d3-force");
-    const [graphInstance, setGraphInstance] = useState<any>(null);
+    const [nodes, setNodes, onNodesChange] = useNodesState([]);
+    const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+
+    const simulationRef = useRef<any>(null);
+    const isDraggingRef = useRef(false);
+    const draggedNodeRef = useRef<string | null>(null);
+
     const [heatMapMode, setHeatMapMode] = useState(false);
     const [isFirstVisit, setIsFirstVisit] = useState(false);
     const [activeCluster, setActiveCluster] = useState<string | null>(null);
     const [hoveredCluster, setHoveredCluster] = useState<string | null>(null);
     const [showHulls, setShowHulls] = useState(true);
-    const [layoutStable, setLayoutStable] = useState(false);
 
-    // API data state
-    const [graphData, setGraphData] = useState<GraphData>({ nodes: [], edges: [] });
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
-
-    // NEW: Depth exploration state
+    // Depth exploration state
     const [explorationMode, setExplorationMode] = useState(false);
     const [explorationDepth, setExplorationDepth] = useState(1);
     const [exploredFromNode, setExploredFromNode] = useState<string | null>(null);
     const [lastClickedNode, setLastClickedNode] = useState<string | null>(null);
 
-    // Use ref as backup for state (more reliable across re-renders)
-    const lastClickedNodeRef = useRef<string | null>(null);
+    // API data state
+    const [graphData, setGraphData] = useState<GraphData>({ nodes: [], edges: [] });
 
     // Fetch graph data from ArangoDB
-    useEffect(() => {
-        async function fetchGraphData() {
-            try {
-                setLoading(true);
-                setError(null);
-                console.log('🔄 Fetching graph data from ArangoDB...');
+    const fetchGraphData = useCallback(async () => {
+        try {
+            setLoading(true);
+            setError(null);
+            console.log('🔄 Fetching graph data from ArangoDB...');
 
-                const response = await fetch(`${API_BASE}/graph`);
+            const response = await fetch(`${API_BASE}/graph`);
 
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                }
-
-                const data: GraphData = await response.json();
-                console.log('✅ Graph data loaded:', data);
-                console.log(`   📊 ${data.nodes.length} nodes, ${data.edges.length} edges`);
-
-                setGraphData(data);
-                setLoading(false);
-            } catch (err) {
-                const errorMsg = err instanceof Error ? err.message : "Failed to fetch graph data";
-                console.error('❌ Failed to load graph:', err);
-                setError(errorMsg);
-                setLoading(false);
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
-        }
 
-        fetchGraphData();
+            const data: GraphData = await response.json();
+            console.log('✅ Graph data loaded:', data);
+            console.log(`   📊 ${data.nodes.length} nodes, ${data.edges.length} edges`);
+
+            setGraphData(data);
+            return data;
+        } catch (err) {
+            const errorMsg = err instanceof Error ? err.message : "Failed to fetch graph data";
+            console.error('❌ Failed to load graph:', err);
+            setError(errorMsg);
+            throw err;
+        } finally {
+            setLoading(false);
+        }
     }, []);
 
     // Check if first visit
@@ -144,7 +149,7 @@ const GraphExplorer: React.FC<GraphExplorerProps> = ({
         }
     }, []);
 
-    // NEW: Explore neighbors at specific depth
+    // Explore neighbors at specific depth
     const exploreNeighbors = async (nodeId: string, depth: number) => {
         try {
             const nodeKey = nodeId.replace('nodes/', '');
@@ -159,9 +164,10 @@ const GraphExplorer: React.FC<GraphExplorerProps> = ({
             const data = await response.json();
             console.log('✅ Neighbors found:', data);
 
+            // Clear selection first
             onNodeSelect([]);
 
-            // THEN: Update graph
+            // Update graph data
             setGraphData({
                 nodes: data.nodes,
                 edges: data.edges
@@ -170,24 +176,11 @@ const GraphExplorer: React.FC<GraphExplorerProps> = ({
             setExplorationMode(true);
             setExploredFromNode(nodeId);
 
-            // FINALLY: Set new selection after a brief delay
+            // Select all discovered nodes after a brief delay
             setTimeout(() => {
                 const nodeIds = data.nodes.map((n: any) => n.id);
                 onNodeSelect(nodeIds);
-            }, 10);
-
-            // Update graph to show only explored nodes
-            setGraphData({
-                nodes: data.nodes,
-                edges: data.edges
-            });
-
-            setExplorationMode(true);
-            setExploredFromNode(nodeId);
-
-            // Select all discovered nodes
-            const nodeIds = data.nodes.map((n: any) => n.id);
-            onNodeSelect(nodeIds);
+            }, 100);
 
         } catch (err) {
             console.error('❌ Failed to explore neighbors:', err);
@@ -195,13 +188,11 @@ const GraphExplorer: React.FC<GraphExplorerProps> = ({
         }
     };
 
-    // NEW: Reset to full graph view
+    // Reset to full graph view
     const resetToFullGraph = async () => {
         try {
             console.log('🔄 Resetting to full graph...');
-            const response = await fetch(`${API_BASE}/graph`);
-            const data = await response.json();
-            setGraphData(data);
+            const data = await fetchGraphData();
             setExplorationMode(false);
             setExploredFromNode(null);
             onNodeSelect([]);
@@ -211,317 +202,331 @@ const GraphExplorer: React.FC<GraphExplorerProps> = ({
         }
     };
 
-    // Layout configurations
-    const layoutConfigs: Record<string, any> = {
-        "d3-force": {
-            type: "d3-force",
-            preventOverlap: true,
-            nodeStrength: -1500,
-            linkDistance: 200,
-            collide: {
-                strength: 1,
-                iterations: 5,
-            },
-            alpha: 0.3,
-            alphaDecay: 0.028,
-            alphaMin: 0.001,
-        },
-        dagre: {
-            type: "dagre",
-            rankdir: "TB",
-            nodesep: 80,
-            ranksep: 120,
-        },
-        circular: {
-            type: "circular",
-            radius: 300,
-            divisions: 7,
-        },
-        concentric: {
-            type: "concentric",
-            minNodeSpacing: 100,
-            preventOverlap: true,
-        },
-        grid: {
-            type: "grid",
-            preventOverlap: true,
-            nodeSpacing: 120,
-            sortBy: "cluster",
-        },
-    };
+    // Create physics simulation with D3
+    const createPhysicsSimulation = useCallback((initialNodes: any[], initialEdges: any[]) => {
+        const simulationNodes = initialNodes.map((n) => ({
+            ...n,
+            x: n.position.x,
+            y: n.position.y,
+            vx: 0,
+            vy: 0,
+        }));
 
-    // Convert data to Graphin format
-    const prepareGraphData = useMemo(() => {
-        if (!graphData.nodes.length) {
-            return { nodes: [], edges: [] };
-        }
+        const simulationEdges = initialEdges.map((e) => ({
+            source: e.source,
+            target: e.target,
+        }));
 
-        const nodes = graphData.nodes.map((node: any) => {
-            const clusterData = clusterInfo[node.cluster as keyof typeof clusterInfo];
-            const isInActiveCluster = activeCluster === node.cluster;
+        const simulation = d3
+            .forceSimulation(simulationNodes)
+            .force(
+                "link",
+                d3.forceLink(simulationEdges)
+                    .id((d: any) => d.id)
+                    .distance(200)
+                    .strength(0.5)
+            )
+            .force(
+                "charge",
+                d3.forceManyBody()
+                    .strength(-500)
+            )
+            .force(
+                "collision",
+                d3.forceCollide()
+                    .radius(50)
+                    .strength(0.7)
+            )
+            .force(
+                "center",
+                d3.forceCenter(0, 0)
+            )
+            .alphaDecay(0.0228)
+            .velocityDecay(0.4)
+            .alpha(1)
+            .alphaMin(0.001);
+
+        simulation.on("tick", () => {
+            requestAnimationFrame(() => {
+                setNodes((prevNodes) =>
+                    prevNodes.map((node) => {
+                        const simNode = simulationNodes.find((n) => n.id === node.id);
+                        if (simNode) {
+                            // Skip updating the dragged node
+                            if (isDraggingRef.current && draggedNodeRef.current === node.id) {
+                                return node;
+                            }
+
+                            return {
+                                ...node,
+                                position: {
+                                    x: simNode.x,
+                                    y: simNode.y,
+                                },
+                            };
+                        }
+                        return node;
+                    })
+                );
+            });
+        });
+
+        return { simulation, simulationNodes };
+    }, [setNodes]);
+
+    // Convert API data to ReactFlow format and start simulation
+    const processGraphData = useCallback((data: GraphData) => {
+        console.log('🎨 Processing graph data for ReactFlow...');
+
+        // Create ReactFlow nodes
+        const rfNodes = data.nodes.map((n) => {
+            const clusterData = clusterInfo[n.cluster as keyof typeof clusterInfo];
+            const isInActiveCluster = activeCluster === n.cluster;
             const isDimmed = activeCluster && !isInActiveCluster;
+            const isSelected = selectedNodes.includes(n.id);
 
             return {
-                id: node.id,
+                id: n.id,
                 data: {
-                    label: node.label,
-                    type: node.type,
-                    cluster: node.cluster,
-                    importance: node.importance,
+                    label: n.label,
+                    type: n.type,
+                    cluster: n.cluster,
+                    importance: n.importance,
+                },
+                position: {
+                    x: Math.random() * 400 - 200,
+                    y: Math.random() * 400 - 200,
                 },
                 style: {
-                    fill: clusterData?.color || "#999",
-                    stroke: isInActiveCluster ? "#000" : clusterData?.color || "#999",
-                    lineWidth: isInActiveCluster ? 4 : 2,
-                    opacity: isDimmed ? 0.2 : 1,
-                    size: node.size || 40,
+                    background: clusterData?.color || "#999",
+                    color: "#1a1a1a",
+                    border: isSelected ? "3px solid #667eea" : "2px solid #000",
+                    borderRadius: "50%",
+                    width: n.size || 60,
+                    height: n.size || 60,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    padding: "8px",
+                    fontSize: "9px",
+                    fontWeight: "700",
+                    textAlign: "center",
+                    lineHeight: "1.1",
+                    fontFamily: "system-ui, -apple-system, sans-serif",
+                    boxShadow: isSelected
+                        ? `0 0 20px ${clusterData?.color || "#667eea"}`
+                        : `0 0 8px ${clusterData?.color || "#999"}`,
+                    opacity: isDimmed ? 0.3 : 1,
+                    transition: "transform 0.2s ease, filter 0.2s ease, opacity 0.2s ease",
                 },
             };
         });
 
-        const edges = graphData.edges.map((edge: any, idx: number) => {
-            const sourceNode = graphData.nodes.find((n: any) => n.id === edge.source);
-            const targetNode = graphData.nodes.find((n: any) => n.id === edge.target);
+        // Create ReactFlow edges
+        const rfEdges = data.edges.map((e) => {
+            const sourceNode = data.nodes.find((n) => n.id === e.source);
+            const targetNode = data.nodes.find((n) => n.id === e.target);
             const isCrossCluster = sourceNode?.cluster !== targetNode?.cluster;
             const isInActiveCluster = activeCluster &&
                 (sourceNode?.cluster === activeCluster || targetNode?.cluster === activeCluster);
             const isDimmed = activeCluster && !isInActiveCluster;
 
             return {
-                id: edge.id || `edge-${idx}`,
-                source: edge.source,
-                target: edge.target,
-                data: {
-                    type: edge.type,
-                    weight: edge.weight,
-                },
+                id: e.id,
+                source: e.source,
+                target: e.target,
+                type: "straight",
+                animated: false,
                 style: {
                     stroke: isCrossCluster ? "#ff6b6b" : "#99ADD1",
-                    lineWidth: edge.weight * 3,
-                    opacity: isDimmed ? 0.1 : (isCrossCluster ? 0.6 : 0.4),
-                    lineDash: isCrossCluster ? [5, 5] : undefined,
+                    strokeWidth: Math.max(1.5, e.weight * 2),
+                    strokeOpacity: isDimmed ? 0.1 : (isCrossCluster ? 0.5 : 0.3),
+                    strokeDasharray: isCrossCluster ? "5,5" : undefined,
+                },
+                label: heatMapMode ? e.type : undefined,
+                labelStyle: {
+                    fill: "#999",
+                    fontSize: 9,
+                    fontWeight: 500,
+                    fontFamily: "system-ui, -apple-system, sans-serif",
+                },
+                labelBgStyle: {
+                    fill: "#1a1a1a",
+                    fillOpacity: 0.8,
                 },
             };
         });
 
-        return { nodes, edges };
-    }, [graphData, activeCluster]);
+        // Set nodes and edges
+        setNodes(rfNodes);
+        setEdges(rfEdges);
 
-    // Graph options
-    const graphOptions = useMemo(() => ({
-        autoResize: true,
-        data: prepareGraphData,
-        layout: layoutConfigs[layout],
-        node: {
-            style: {
-                labelText: (d: any) => d.data?.label || d.id,
-                labelPlacement: "bottom",
-                labelFill: "#333",
-                labelFontSize: 11,
-                labelBackground: true,
-                labelBackgroundFill: "#ffffffdd",
-                labelBackgroundRadius: 4,
-                labelPadding: [2, 4],
-            },
-            state: {
-                selected: {
-                    lineWidth: 5,
-                    halo: true,
-                    stroke: "#667eea",
-                    shadowBlur: 20,
-                    shadowColor: "#667eea",
-                },
-                active: {
-                    halo: true,
-                    lineWidth: 3,
-                },
-            },
-        },
-        edge: {
-            style: {
-                labelText: (d: any) => heatMapMode ? d.data?.type : "",
-                labelFontSize: 9,
-                labelBackground: true,
-                labelBackgroundFill: "#ffffffcc",
-                endArrow: true,
-            },
-        },
-        behaviors: [
-            "drag-canvas",
-            "zoom-canvas",
-            "drag-element",
-            "click-select",
-        ],
-        animation: true,
-    }), [prepareGraphData, layout, heatMapMode]);
+        // Stop previous simulation
+        if (simulationRef.current) {
+            simulationRef.current.simulation.stop();
+        }
 
-    // Draw cluster hulls
-    const drawClusterHullsSVG = () => {
-        if (!graphInstance || !hullLayerRef.current || !showHulls || !graphData.nodes.length) return;
+        // Create and start new simulation
+        const { simulation, simulationNodes } = createPhysicsSimulation(rfNodes, rfEdges);
+        simulationRef.current = { simulation, simulationNodes };
 
-        hullLayerRef.current.innerHTML = '';
+        console.log('✅ Graph processed and simulation started');
+    }, [activeCluster, selectedNodes, heatMapMode, setNodes, setEdges, createPhysicsSimulation]);
 
-        const clusters = Object.keys(clusterInfo);
+    // Load initial graph
+    useEffect(() => {
+        fetchGraphData().then((data) => {
+            processGraphData(data);
+        });
 
-        clusters.forEach((clusterId) => {
-            const clusterNodes = graphData.nodes.filter(
-                (n: any) => n.cluster === clusterId
+        return () => {
+            if (simulationRef.current) {
+                simulationRef.current.simulation.stop();
+            }
+        };
+    }, []);
+
+    // Reprocess when filters change
+    // Reprocess when filters change — but don't restart the simulation
+    useEffect(() => {
+        if (graphData.nodes.length > 0 && simulationRef.current) {
+            // Update node styles instead of restarting physics
+            setNodes((prevNodes) =>
+                prevNodes.map((node) => {
+                    const n = graphData.nodes.find((gn: any) => gn.id === node.id);
+                    if (!n) return node;
+
+                    const clusterData = clusterInfo[n.cluster as keyof typeof clusterInfo];
+                    const isInActiveCluster = activeCluster === n.cluster;
+                    const isDimmed = activeCluster && !isInActiveCluster;
+                    const isSelected = selectedNodes.includes(n.id);
+
+                    return {
+                        ...node,
+                        style: {
+                            ...node.style,
+                            border: isSelected ? "3px solid #667eea" : "2px solid #000",
+                            boxShadow: isSelected
+                                ? `0 0 20px ${clusterData?.color || "#667eea"}`
+                                : `0 0 8px ${clusterData?.color || "#999"}`,
+                            opacity: isDimmed ? 0.3 : 1,
+                        },
+                    };
+                })
             );
 
-            if (clusterNodes.length < 2) return;
+            // Optionally, update edges in a similar way
+            setEdges((prevEdges) =>
+                prevEdges.map((edge) => {
+                    const sourceNode = graphData.nodes.find((n) => n.id === edge.source);
+                    const targetNode = graphData.nodes.find((n) => n.id === edge.target);
+                    const isCrossCluster = sourceNode?.cluster !== targetNode?.cluster;
+                    const isInActiveCluster =
+                        activeCluster &&
+                        (sourceNode?.cluster === activeCluster || targetNode?.cluster === activeCluster);
+                    const isDimmed = activeCluster && !isInActiveCluster;
 
-            const positions: Array<{ x: number; y: number }> = [];
-            clusterNodes.forEach((n: any) => {
-                try {
-                    const node = graphInstance.findById(n.id);
-                    if (node) {
-                        const model = node.getModel();
-                        if (model.x !== undefined && model.y !== undefined) {
-                            positions.push({ x: model.x, y: model.y });
-                        }
-                    }
-                } catch (e) {
-                    // Ignore
-                }
-            });
-
-            if (positions.length < 2) return;
-
-            const xs = positions.map(p => p.x);
-            const ys = positions.map(p => p.y);
-            const minX = Math.min(...xs) - 80;
-            const maxX = Math.max(...xs) + 80;
-            const minY = Math.min(...ys) - 80;
-            const maxY = Math.max(...ys) + 80;
-            const width = maxX - minX;
-            const height = maxY - minY;
-
-            const clusterData = clusterInfo[clusterId as keyof typeof clusterInfo];
-            const isActive = activeCluster === clusterId;
-            const isHovered = hoveredCluster === clusterId;
-
-            const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-            rect.setAttribute('x', minX.toString());
-            rect.setAttribute('y', minY.toString());
-            rect.setAttribute('width', width.toString());
-            rect.setAttribute('height', height.toString());
-            rect.setAttribute('rx', '20');
-            rect.setAttribute('ry', '20');
-            rect.setAttribute('fill', clusterData?.color || '#999');
-            rect.setAttribute('fill-opacity', isActive ? '0.15' : isHovered ? '0.1' : '0.05');
-            rect.setAttribute('stroke', clusterData?.color || '#999');
-            rect.setAttribute('stroke-opacity', isActive ? '0.8' : isHovered ? '0.6' : '0.3');
-            rect.setAttribute('stroke-width', isActive ? '3' : isHovered ? '2' : '1');
-            rect.setAttribute('stroke-dasharray', '10,5');
-            rect.style.pointerEvents = 'none';
-            rect.style.transition = 'all 0.3s ease';
-
-            hullLayerRef.current?.appendChild(rect);
-        });
-    };
-
-    // Handle graph initialization
-    const handleInit = (graph: any) => {
-        // Graphin passes the graph instance as a parameter to onInit
-        console.log('🎨 Graph initialized:', graph);
-        setGraphInstance(graph);
-
-        let stabilizeTimer: NodeJS.Timeout;
-        graph.on('afterlayout', () => {
-            clearTimeout(stabilizeTimer);
-            stabilizeTimer = setTimeout(() => {
-                setLayoutStable(true);
-                drawClusterHullsSVG();
-            }, 1000);
-        });
-    };
-
-    // Handle node clicks - separate useEffect for better reliability
-    useEffect(() => {
-        if (!graphInstance) return;
-
-        const handleNodeClick = (evt: any) => {
-            console.log("🎯 Node click event fired!", evt);
-
-            let nodeId = null;
-            let model = null;
-
-            try {
-                // Method 1: Standard getModel approach
-                if (evt?.item?.getModel) {
-                    model = evt.item.getModel();
-                    nodeId = model?.id;
-                }
-
-                // Method 2: Direct _cfg access (some Graphin versions)
-                if (!nodeId && evt?.item?._cfg?.id) {
-                    nodeId = evt.item._cfg.id;
-                    model = evt.item._cfg.model;
-                }
-
-                // Method 3: Alternative get method
-                if (!nodeId && evt?.item?.get) {
-                    model = evt.item.get('model');
-                    nodeId = model?.id;
-                }
-            } catch (err) {
-                console.warn("⚠️ Could not parse node event:", err);
-            }
-
-            console.log("🧩 Event details:", { evt, model, nodeId });
-
-            if (!nodeId) {
-                console.warn("⚠️ No valid node ID found in click event");
-                return;
-            }
-
-            console.log("✅ Node clicked:", nodeId);
-            setLastClickedNode(nodeId);
-            lastClickedNodeRef.current = nodeId;
-
-            // Update selection to include this node
-            onNodeSelect([nodeId]);
-
-            // Optional: Flash highlight
-            try {
-                graphInstance.setItemState(evt.item, "active", true);
-                setTimeout(() => {
-                    graphInstance.setItemState(evt.item, "active", false);
-                }, 600);
-            } catch (e) {
-                console.warn("Could not set active state:", e);
-            }
-        };
-
-        // Bind the event
-        console.log("🔧 Binding node:click event handler to graph instance");
-        graphInstance.on("node:click", handleNodeClick);
-
-        // Cleanup function
-        return () => {
-            console.log("🧹 Cleaning up node:click event handler");
-            graphInstance.off("node:click", handleNodeClick);
-        };
-    }, [graphInstance, onNodeSelect]);
-
-    // Redraw hulls when needed
-    useEffect(() => {
-        if (layoutStable && showHulls && graphData.nodes.length) {
-            const timer = setTimeout(() => {
-                drawClusterHullsSVG();
-            }, 100);
-            return () => clearTimeout(timer);
+                    return {
+                        ...edge,
+                        style: {
+                            ...edge.style,
+                            strokeOpacity: isDimmed ? 0.1 : (isCrossCluster ? 0.5 : 0.3),
+                        },
+                    };
+                })
+            );
         }
-    }, [activeCluster, hoveredCluster, layoutStable, showHulls, graphInstance, graphData]);
+    }, [activeCluster, selectedNodes, heatMapMode]);
+
+
+    // Handle node drag start
+    const handleNodeDragStart = useCallback((event: any, node: Node) => {
+        isDraggingRef.current = true;
+        draggedNodeRef.current = node.id;
+
+        if (!simulationRef.current) return;
+
+        const { simulation, simulationNodes } = simulationRef.current;
+        const simNode = simulationNodes.find((n: any) => n.id === node.id);
+
+        if (simNode) {
+            simNode.fx = simNode.x;
+            simNode.fy = simNode.y;
+        }
+
+        // Gentle reheat - just enough for neighbors to adjust
+        // Don't use .alpha() which could scatter the graph
+        simulation.alphaTarget(0.3).restart();
+    }, []);
+
+    // Handle node drag
+    const handleNodeDrag = useCallback((event: any, node: Node) => {
+        if (!simulationRef.current) return;
+
+        const { simulationNodes } = simulationRef.current;
+        const simNode = simulationNodes.find((n: any) => n.id === node.id);
+
+        if (simNode) {
+            simNode.fx = node.position.x;
+            simNode.fy = node.position.y;
+            simNode.x = node.position.x;
+            simNode.y = node.position.y;
+        }
+
+        // Immediate React update
+        setNodes((prevNodes) =>
+            prevNodes.map((n) =>
+                n.id === node.id
+                    ? { ...n, position: { x: node.position.x, y: node.position.y } }
+                    : n
+            )
+        );
+    }, [setNodes]);
+
+    // Handle node drag stop
+    const handleNodeDragStop = useCallback((event: any, node: Node) => {
+        if (!simulationRef.current) return;
+
+        const { simulation, simulationNodes } = simulationRef.current;
+        const simNode = simulationNodes.find((n: any) => n.id === node.id);
+
+        if (simNode) {
+            simNode.fx = null;
+            simNode.fy = null;
+        }
+
+        simulation.alphaTarget(0);
+
+        isDraggingRef.current = false;
+        draggedNodeRef.current = null;
+    }, []);
+
+    // Handle node click
+    const handleNodeClick = useCallback((event: any, node: Node) => {
+        console.log("🎯 Node clicked:", node.id);
+        setLastClickedNode(node.id);
+
+        // Single click = select
+        onNodeSelect([node.id]);
+    }, [onNodeSelect]);
+
+    // Prevent double-click from scattering the graph
+    const handleNodeDoubleClick = useCallback((event: any, node: Node) => {
+        console.log("🎯 Double-click detected on:", node.id);
+        // Prevent default behavior and just treat as single click
+        event.stopPropagation();
+        event.preventDefault();
+
+        // Just select the node, don't restart simulation
+        setLastClickedNode(node.id);
+        onNodeSelect([node.id]);
+    }, [onNodeSelect]);
 
     // Handle cluster drill-down
     const handleClusterDrillDown = (cluster: string) => {
         if (activeCluster === cluster) {
             setActiveCluster(null);
-            const clusterNodes = graphData.nodes
-                .filter((n: any) => n.cluster === cluster)
-                .map((n: any) => n.id);
-            onNodeSelect(selectedNodes.filter(id => !clusterNodes.includes(id)));
+            onNodeSelect([]);
         } else {
             setActiveCluster(cluster);
             const clusterNodes = graphData.nodes
@@ -531,57 +536,12 @@ const GraphExplorer: React.FC<GraphExplorerProps> = ({
         }
     };
 
-    // Update selected node states
-    useEffect(() => {
-        if (graphInstance && graphData.nodes.length > 0) {
-            // Filter selectedNodes to only include nodes that exist in graphData
-            const validSelectedNodes = selectedNodes.filter(nodeId =>
-                graphData.nodes.some(node => node.id === nodeId)
-            );
-
-            // Only try to set state on nodes that actually exist in graphData
-            graphData.nodes.forEach((node: any) => {
-                const isSelected = validSelectedNodes.includes(node.id);
-                try {
-                    graphInstance.setItemState(node.id, "selected", isSelected);
-                } catch (e) {
-                    // Node might not be rendered yet, ignore
-                }
-            });
-        }
-    }, [selectedNodes, graphInstance, graphData.nodes]);
-
     // Power BI sync
     useEffect(() => {
         if (selectedNodes.length > 0) {
             notifyPowerBIUpdate("node_selection", selectedNodes);
         }
     }, [selectedNodes]);
-
-    const handleLayoutChange = (newLayout: string) => {
-        setLayout(newLayout);
-        setLayoutStable(false);
-    };
-
-    const handleZoomIn = () => {
-        if (graphInstance) {
-            const zoom = graphInstance.getZoom();
-            graphInstance.zoomTo(zoom * 1.2, { x: 0, y: 0 }, true, { duration: 300 });
-        }
-    };
-
-    const handleZoomOut = () => {
-        if (graphInstance) {
-            const zoom = graphInstance.getZoom();
-            graphInstance.zoomTo(zoom * 0.8, { x: 0, y: 0 }, true, { duration: 300 });
-        }
-    };
-
-    const handleFitView = () => {
-        if (graphInstance) {
-            graphInstance.fitView(20, { duration: 300 });
-        }
-    };
 
     // Loading state
     if (loading) {
@@ -639,13 +599,10 @@ const GraphExplorer: React.FC<GraphExplorerProps> = ({
 
     return (
         <div className="h-[calc(100%-2.5rem)] neo-card overflow-hidden flex flex-col">
-
             {/* Graph Controls */}
             <div className="px-3 py-2 border-b border-border bg-secondary/20">
-
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-
                         {/* Mode Toggle */}
                         <div className="neo-card p-1 flex gap-1 bg-card">
                             <button
@@ -656,7 +613,6 @@ const GraphExplorer: React.FC<GraphExplorerProps> = ({
                                     }`}
                             >
                                 <Pickaxe className="w-4 h-4" />
-
                             </button>
                             <button
                                 onClick={() => onModeChange('discovery')}
@@ -666,31 +622,25 @@ const GraphExplorer: React.FC<GraphExplorerProps> = ({
                                     }`}
                             >
                                 <Gem className="w-4 h-5" />
-
                             </button>
                         </div>
 
-                        {/* NEW: Depth Explorer Controls - Only show in discovery mode */}
+                        {/* Depth Explorer Controls - Only show in discovery mode */}
                         {mode === 'discovery' && (
                             <div className="neo-card p-1 flex items-center gap-2 bg-card">
-                                {/* Exploration Toggle */}
                                 <button
                                     onClick={() => {
                                         console.log('🔘 Explore button clicked');
                                         console.log('📍 selectedNodes:', selectedNodes);
 
                                         if (explorationMode) {
-                                            // Turn off exploration
-                                            console.log('🔄 Turning off exploration');
                                             resetToFullGraph();
                                         } else {
-                                            // Use the selectedNodes prop - it's already populated!
                                             if (selectedNodes && selectedNodes.length > 0) {
-                                                const nodeId = selectedNodes[0]; // Use first selected node
+                                                const nodeId = selectedNodes[0];
                                                 console.log('✅ Starting exploration with node:', nodeId);
                                                 exploreNeighbors(nodeId, explorationDepth);
                                             } else {
-                                                console.log('❌ No node selected');
                                                 alert('Please click on any node first');
                                             }
                                         }
@@ -707,7 +657,7 @@ const GraphExplorer: React.FC<GraphExplorerProps> = ({
                                     {explorationMode && <span className="opacity-70">✓</span>}
                                 </button>
 
-                                {/* Depth selector - Always visible */}
+                                {/* Depth selector */}
                                 <div className="flex items-center gap-1 border-l border-border pl-2">
                                     <span className="text-xs font-semibold text-muted-foreground">Depth:</span>
                                     <div className="flex gap-1">
@@ -716,7 +666,6 @@ const GraphExplorer: React.FC<GraphExplorerProps> = ({
                                                 key={d}
                                                 onClick={() => {
                                                     setExplorationDepth(d);
-                                                    // If already exploring, re-explore at new depth
                                                     if (explorationMode && exploredFromNode) {
                                                         exploreNeighbors(exploredFromNode, d);
                                                     }
@@ -781,7 +730,6 @@ const GraphExplorer: React.FC<GraphExplorerProps> = ({
                             </div>
                         )}
 
-                        {/* NEW: Exploration Mode Indicator */}
                         {explorationMode && exploredFromNode && (
                             <div className="neo-card px-3 py-1 bg-accent-teal/20 flex items-center gap-2">
                                 <Search className="w-3 h-3" />
@@ -794,15 +742,6 @@ const GraphExplorer: React.FC<GraphExplorerProps> = ({
 
                     {/* Right side controls */}
                     <div className="flex items-center gap-2">
-                        <button
-                            onClick={() => setShowHulls(!showHulls)}
-                            className={`neo-button-secondary flex items-center gap-2 ${showHulls ? 'bg-accent-teal/20 text-foreground' : ''
-                                }`}
-                        >
-                            <Layers className="w-4 h-4" />
-                            <span className="text-sm">Clusters: {showHulls ? 'ON' : 'OFF'}</span>
-                        </button>
-
                         {mode === 'mining' && (
                             <button
                                 onClick={() => setHeatMapMode(!heatMapMode)}
@@ -814,32 +753,12 @@ const GraphExplorer: React.FC<GraphExplorerProps> = ({
                             </button>
                         )}
 
-                        <select
-                            value={layout}
-                            onChange={(e) => handleLayoutChange(e.target.value)}
-                            className="neo-button-secondary text-sm px-3 py-2"
+                        <button
+                            onClick={() => fetchGraphData().then(processGraphData)}
+                            className="neo-button-secondary text-sm flex items-center gap-2"
                         >
-                            <option value="d3-force">Force</option>
-                            <option value="dagre">Hierarchy</option>
-                            <option value="circular">Circular</option>
-                            <option value="concentric">Concentric</option>
-                            <option value="grid">Grid</option>
-                        </select>
-
-                        <div className="flex items-center gap-1 neo-card p-1 bg-card">
-                            <button onClick={handleZoomIn} className="p-1 hover:bg-muted rounded">
-                                <ZoomIn className="w-4 h-4" />
-                            </button>
-                            <button onClick={handleZoomOut} className="p-1 hover:bg-muted rounded">
-                                <ZoomOut className="w-4 h-4" />
-                            </button>
-                            <button onClick={handleFitView} className="p-1 hover:bg-muted rounded">
-                                <Minimize2 className="w-4 h-4" />
-                            </button>
-                        </div>
-
-                        <button className="p-2 hover:bg-muted rounded-lg transition-colors">
-                            <Maximize2 className="w-4 h-4" />
+                            <Activity className="w-4 h-4" />
+                            Refresh
                         </button>
                     </div>
                 </div>
@@ -862,7 +781,7 @@ const GraphExplorer: React.FC<GraphExplorerProps> = ({
                             </p>
                             <p className="text-xs text-muted-foreground leading-relaxed">
                                 <strong>Click</strong> a node to select it. <strong>Click "Explore Neighbors"</strong> to filter the graph.
-                                <strong>Shift+Click</strong> to drill into cluster. Use <strong>Depth buttons</strong> to change exploration range!
+                                Use <strong>Depth buttons</strong> to change exploration range!
                             </p>
                         </div>
                     </div>
@@ -870,28 +789,54 @@ const GraphExplorer: React.FC<GraphExplorerProps> = ({
             )}
 
             {/* Graph Container */}
-            <div ref={containerRef} className="flex-1 relative bg-background/50 overflow-hidden">
-                {/* SVG Overlay for hulls */}
-                <svg
-                    style={{
-                        position: 'absolute',
-                        top: 0,
-                        left: 0,
-                        width: '100%',
-                        height: '100%',
-                        pointerEvents: 'none',
-                        zIndex: 0
-                    }}
+            <div className="flex-1 relative bg-background/50 overflow-hidden">
+                <ReactFlow
+                    nodes={nodes}
+                    edges={edges}
+                    onNodesChange={onNodesChange}
+                    onEdgesChange={onEdgesChange}
+                    onNodeDragStart={handleNodeDragStart}
+                    onNodeDrag={handleNodeDrag}
+                    onNodeDragStop={handleNodeDragStop}
+                    onNodeClick={handleNodeClick}
+                    onNodeDoubleClick={handleNodeDoubleClick}
+                    fitView
+                    fitViewOptions={{ padding: 0.2, maxZoom: 1 }}
+                    nodesDraggable={true}
+                    nodesConnectable={false}
+                    elementsSelectable={true}
+                    zoomOnScroll={true}
+                    panOnScroll={false}
+                    minZoom={0.1}
+                    maxZoom={4}
+                    nodeOrigin={[0.5, 0.5]}
+                    selectNodesOnDrag={false}
                 >
-                    <g ref={hullLayerRef} />
-                </svg>
-
-                <Graphin
-                    ref={graphRef}
-                    options={graphOptions}
-                    onInit={handleInit}
-                    style={{ width: "100%", height: "100%", position: 'relative', zIndex: 1 }}
-                />
+                    <Background
+                        variant="dots"
+                        gap={20}
+                        size={0.5}
+                        color="#2a2a2a"
+                    />
+                    <Controls
+                        style={{
+                            button: {
+                                background: "#333",
+                                borderColor: "#444",
+                                color: "#999",
+                            }
+                        }}
+                    />
+                    <MiniMap
+                        nodeStrokeColor="#333"
+                        nodeColor={(n) => n.style?.background || "#666"}
+                        maskColor="rgba(26, 26, 26, 0.9)"
+                        style={{
+                            background: "#1a1a1a",
+                            border: "1px solid #333",
+                        }}
+                    />
+                </ReactFlow>
 
                 {/* Cluster Legend */}
                 <div className="absolute top-4 left-4 neo-card p-3 bg-card max-w-xs z-10">
@@ -931,7 +876,7 @@ const GraphExplorer: React.FC<GraphExplorerProps> = ({
                         })}
                     </div>
                     <div className="mt-3 pt-2 border-t border-border text-[10px] text-muted-foreground">
-                        <div>💡 Shift+Click node → cluster | Double-Click → explore</div>
+                        <div>💡 Click node → explore | Drag to move</div>
                     </div>
 
                     {/* Save as Gem Button */}
@@ -992,11 +937,63 @@ const GraphExplorer: React.FC<GraphExplorerProps> = ({
                     </span>
                 </div>
                 <div className="text-muted-foreground">
-                    Layout: {layout} | Clusters: {Object.keys(clusterInfo).length}
+                    D3 Force Physics | Clusters: {Object.keys(clusterInfo).length}
                 </div>
             </div>
 
+            <style>{`
+                .react-flow__node {
+                    cursor: grab;
+                    will-change: transform;
+                    transform: translateZ(0);
+                }
+                
+                .react-flow__node:active {
+                    cursor: grabbing;
+                }
 
+                .react-flow__node:hover {
+                    filter: brightness(1.2);
+                    transform: scale(1.1) translateZ(0);
+                }
+
+                .react-flow__node.selected {
+                    filter: brightness(1.3);
+                }
+
+                .react-flow__edge {
+                    will-change: transform;
+                }
+
+                .react-flow__edge.selected .react-flow__edge-path {
+                    stroke: #fff !important;
+                    stroke-width: 2 !important;
+                    stroke-opacity: 0.8 !important;
+                }
+
+                .react-flow__edge-text {
+                    font-size: 9px;
+                }
+
+                .react-flow__controls {
+                    background: #1a1a1a;
+                    border: 1px solid #333;
+                }
+
+                .react-flow__controls-button {
+                    background: #333;
+                    border-bottom: 1px solid #444;
+                    color: #999;
+                }
+
+                .react-flow__controls-button:hover {
+                    background: #444;
+                }
+
+                .react-flow__attribution {
+                    display: none;
+                }
+            `}</style>
         </div>
     );
 };
