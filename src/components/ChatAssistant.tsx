@@ -1,9 +1,9 @@
-import { useState } from "react";
-import { Send, Sparkles, Eye, Bell, AlertCircle, Database, Zap } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { Send, Sparkles, Eye, Bell, Loader2 } from "lucide-react";
 
 interface ChatAssistantProps {
   selectedNodes: string[];
-  expanded: boolean; // kept for compatibility but no longer used
+  expanded: boolean;
   onToggle: () => void;
   onShowNodes: (nodeIds: string[]) => void;
 }
@@ -22,7 +22,16 @@ interface Message {
   role: "user" | "assistant";
   content: string;
   timestamp: Date;
+  isTyping?: boolean;
 }
+
+// Typing speed configurations (ms per character)
+const TYPING_SPEEDS = {
+  instant: 0,      // No animation
+  fast: 10,        // Very fast
+  normal: 20,      // Normal speed
+  slow: 40,        // Slower for dramatic effect
+};
 
 const ChatAssistant = ({ selectedNodes, onShowNodes }: ChatAssistantProps) => {
   const [message, setMessage] = useState("");
@@ -34,6 +43,12 @@ const ChatAssistant = ({ selectedNodes, onShowNodes }: ChatAssistantProps) => {
       timestamp: new Date(),
     },
   ]);
+  const [isTyping, setIsTyping] = useState(false);
+  const [isThinking, setIsThinking] = useState(false);
+
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const typingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const currentTypingSpeed = TYPING_SPEEDS.normal; // Change this to adjust speed
 
   const insights: InsightCard[] = [
     {
@@ -46,40 +61,21 @@ const ChatAssistant = ({ selectedNodes, onShowNodes }: ChatAssistantProps) => {
       priority: "high",
       nodeIds: ["s1", "s2", "a1"],
     },
-    // {
-    //   id: "2",
-    //   type: "opportunity",
-    //   title: "Cross-Team Collaboration",
-    //   description:
-    //     "Blue Team solved 'C2 download refactor' 2 weeks ago. Red Team is working on the same thing now.",
-    //   impact: "Share knowledge, save 8 hours",
-    //   priority: "medium",
-    //   nodeIds: ["p1", "s1", "s2"],
-    // },
-    // {
-    //   id: "3",
-    //   type: "data",
-    //   title: "ML Training Data Ready",
-    //   description:
-    //     "47 complete C2 execution logs from Q3 2025. High quality, consistent format.",
-    //   impact: "Perfect for command prediction models",
-    //   priority: "low",
-    //   nodeIds: ["a1", "a2", "a3"],
-    // },
   ];
 
-  const getInsightIcon = (type: string) => {
-    switch (type) {
-      case "pattern":
-        return <AlertCircle className="w-4 h-4" />;
-      case "opportunity":
-        return <Zap className="w-4 h-4" />;
-      case "data":
-        return <Database className="w-4 h-4" />;
-      default:
-        return <Bell className="w-4 h-4" />;
-    }
-  };
+  // Auto-scroll to bottom when messages change
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  // Cleanup typing interval on unmount
+  useEffect(() => {
+    return () => {
+      if (typingIntervalRef.current) {
+        clearInterval(typingIntervalRef.current);
+      }
+    };
+  }, []);
 
   const getInsightColor = (type: string) => {
     switch (type) {
@@ -94,8 +90,54 @@ const ChatAssistant = ({ selectedNodes, onShowNodes }: ChatAssistantProps) => {
     }
   };
 
+  const typeMessage = (fullText: string, messageId: number) => {
+    // If instant typing, just set the full message
+    if (currentTypingSpeed === 0) {
+      setMessages((prev) =>
+        prev.map((msg, idx) =>
+          idx === messageId
+            ? { ...msg, content: fullText, isTyping: false }
+            : msg
+        )
+      );
+      setIsTyping(false);
+      return;
+    }
+
+    let currentIndex = 0;
+
+    // Clear any existing interval
+    if (typingIntervalRef.current) {
+      clearInterval(typingIntervalRef.current);
+    }
+
+    typingIntervalRef.current = setInterval(() => {
+      if (currentIndex <= fullText.length) {
+        setMessages((prev) =>
+          prev.map((msg, idx) =>
+            idx === messageId
+              ? { ...msg, content: fullText.slice(0, currentIndex) }
+              : msg
+          )
+        );
+        currentIndex++;
+      } else {
+        // Typing complete
+        if (typingIntervalRef.current) {
+          clearInterval(typingIntervalRef.current);
+        }
+        setIsTyping(false);
+        setMessages((prev) =>
+          prev.map((msg, idx) =>
+            idx === messageId ? { ...msg, isTyping: false } : msg
+          )
+        );
+      }
+    }, currentTypingSpeed);
+  };
+
   const handleSend = async () => {
-    if (!message.trim()) return;
+    if (!message.trim() || isTyping || isThinking) return;
 
     const userMessage: Message = {
       role: "user",
@@ -105,6 +147,7 @@ const ChatAssistant = ({ selectedNodes, onShowNodes }: ChatAssistantProps) => {
 
     setMessages((prev) => [...prev, userMessage]);
     setMessage("");
+    setIsThinking(true);
 
     try {
       const context = selectedNodes.length ? selectedNodes.join(", ") : "No nodes selected";
@@ -116,16 +159,32 @@ const ChatAssistant = ({ selectedNodes, onShowNodes }: ChatAssistantProps) => {
       });
 
       const data = await res.json();
+      const fullResponse = data.reply || "No response from AI.";
 
+      setIsThinking(false);
+      setIsTyping(true);
+
+      // Add empty AI message that will be typed into
+      const aiMessageIndex = messages.length + 1; // +1 because we just added user message
       const aiResponse: Message = {
         role: "assistant",
-        content: data.reply || "No response from AI.",
+        content: "",
         timestamp: new Date(),
+        isTyping: true,
       };
 
       setMessages((prev) => [...prev, aiResponse]);
+
+      // Start typing animation after a brief pause
+      setTimeout(() => {
+        typeMessage(fullResponse, aiMessageIndex);
+      }, 400);
+
     } catch (err) {
       console.error("Error calling AI backend:", err);
+      setIsThinking(false);
+      setIsTyping(false);
+
       const errorResponse: Message = {
         role: "assistant",
         content: "⚠️ There was a problem contacting the AI server.",
@@ -135,102 +194,98 @@ const ChatAssistant = ({ selectedNodes, onShowNodes }: ChatAssistantProps) => {
     }
   };
 
-  const suggestedQuestions = [
-    // "What caused these failures?",
-    // "Find similar patterns",
-    // "Compare with other teams",
-    // "Show me related TTPs",
-  ];
-
   return (
-    <div className="neo-card flex flex-col h-full max-h-full overflow-hidden">
-      {/* Header - static now, no toggle */}
-      <div className="flex-shrink-0 p-4 border-b-[3px] border-border bg-muted/30 flex items-center justify-between">
-        <div className="flex items-center gap-2 relative">
+    <div className="h-full w-full flex flex-col overflow-hidden">
+      {/* Fixed Header */}
+      <div className="flex-shrink-0 p-4 border-b-[3px] border-border bg-muted/30">
+        <div className="flex items-center gap-2">
           <Sparkles className="w-5 h-5 text-accent-pink" />
-          <h3 className="font-extrabold text-lg">AI Discovery Assistant</h3>
+          <h3 className="font-extrabold text-lg">AI Assistant</h3>
           {insights.length > 0 && (
-            <span className="ml-2 w-5 h-5 bg-accent-pink text-xs font-bold rounded-full flex items-center justify-center border-2 border-border">
+            <span className="w-5 h-5 bg-accent-pink text-xs font-bold rounded-full flex items-center justify-center border-2 border-border">
               {insights.length}
             </span>
           )}
         </div>
       </div>
 
-      {/* Always-expanded chat content */}
-      <div className="flex-1 min-h-0 max-h-full overflow-y-auto p-4 space-y-3">
-        {/* Discovery Insights */}
-        <div className="space-y-3 mb-4">
-          <div className="flex items-center gap-2 mb-2">
-            <Bell className="w-4 h-4 text-accent-pink" />
-            <span className="text-xs font-bold text-muted-foreground">TODAY'S INSIGHTS</span>
-          </div>
+      {/* Scrollable Messages Container */}
+      <div className="flex-1 min-h-0 overflow-y-auto p-4">
+        <div className="space-y-3">
+          {/* Discovery Insights */}
+          <div className="space-y-3 mb-4">
+            <div className="flex items-center gap-2 mb-2">
+              <Bell className="w-4 h-4 text-accent-pink" />
+              <span className="text-xs font-bold text-muted-foreground">TODAY'S INSIGHTS</span>
+            </div>
 
-          {insights.map((insight) => (
-            <div
-              key={insight.id}
-              className={`neo-card p-3 ${getInsightColor(insight.type)} border-l-4`}
-            >
-              <div className="flex items-start gap-2 mb-2">
-                {getInsightIcon(insight.type)}
-                <div className="flex-1">
+            {insights.map((insight) => (
+              <div
+                key={insight.id}
+                className={`neo-card p-3 ${getInsightColor(insight.type)} border-l-4`}
+              >
+                <div className="mb-2">
                   <h4 className="font-bold text-sm mb-1">{insight.title}</h4>
                   <p className="text-xs leading-relaxed mb-2">{insight.description}</p>
-                  <p className="text-xs text-muted-foreground mb-2">💰 Impact: {insight.impact}</p>
+                  <p className="text-xs text-muted-foreground">💰 Impact: {insight.impact}</p>
                 </div>
+                <button
+                  onClick={() => onShowNodes(insight.nodeIds)}
+                  className="neo-button text-xs w-full flex items-center justify-center gap-2"
+                >
+                  <Eye className="w-3 h-3" />
+                  Show Me in Graph
+                </button>
               </div>
-              <button
-                onClick={() => onShowNodes(insight.nodeIds)}
-                className="neo-button text-xs w-full flex items-center justify-center gap-2"
-              >
-                <Eye className="w-3 h-3" />
-                Show Me in Graph
-              </button>
+            ))}
+          </div>
+
+          {/* Chat Messages */}
+          {messages.map((msg, idx) => (
+            <div
+              key={idx}
+              className={`${msg.role === "assistant"
+                  ? "bg-muted border-2 border-border rounded-xl p-3 relative"
+                  : "bg-secondary border-2 border-border rounded-xl p-3 ml-8"
+                }`}
+            >
+              {msg.role === "assistant" && (
+                <div className="absolute -top-2 -left-2 w-6 h-6 bg-accent-pink border-2 border-border rounded-full flex items-center justify-center">
+                  <Sparkles className="w-3 h-3 text-foreground" />
+                </div>
+              )}
+              <div className="flex items-start gap-2">
+                <p className="text-sm leading-relaxed whitespace-pre-wrap break-words flex-1">
+                  {msg.content}
+                  {msg.isTyping && (
+                    <span className="inline-block w-0.5 h-4 bg-accent-pink ml-1 animate-pulse" />
+                  )}
+                </p>
+              </div>
+              <span className="text-[10px] text-muted-foreground mt-1 block">
+                {msg.timestamp.toLocaleTimeString()}
+              </span>
             </div>
           ))}
-        </div>
 
-        {/* Chat Messages */}
-        {messages.map((msg, idx) => (
-          <div
-            key={idx}
-            className={`${msg.role === "assistant"
-              ? "bg-muted border-2 border-border rounded-xl p-3 relative"
-              : "bg-secondary border-2 border-border rounded-xl p-3 ml-8"
-              }`}
-          >
-            {msg.role === "assistant" && (
+          {/* Thinking indicator */}
+          {isThinking && (
+            <div className="bg-muted border-2 border-border rounded-xl p-3 relative">
               <div className="absolute -top-2 -left-2 w-6 h-6 bg-accent-pink border-2 border-border rounded-full flex items-center justify-center">
-                <Sparkles className="w-3 h-3 text-foreground" />
+                <Loader2 className="w-3 h-3 text-foreground animate-spin" />
               </div>
-            )}
-            <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.content}</p>
-            <span className="text-[10px] text-muted-foreground mt-1 block">
-              {msg.timestamp.toLocaleTimeString()}
-            </span>
-          </div>
-        ))}
-
-        {/* Suggested Questions */}
-        {messages.length <= 2 && (
-          <div className="pt-2">
-            <p className="text-xs font-semibold mb-2 text-muted-foreground">Suggested questions:</p>
-            <div className="flex flex-wrap gap-2">
-              {suggestedQuestions.map((question, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => setMessage(question)}
-                  className="text-xs px-3 py-1.5 bg-secondary border-2 border-border rounded-lg hover:bg-muted transition-colors"
-                >
-                  {question}
-                </button>
-              ))}
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <span className="animate-pulse">AI is thinking...</span>
+              </div>
             </div>
-          </div>
-        )}
+          )}
+
+          {/* Scroll anchor */}
+          <div ref={messagesEndRef} />
+        </div>
       </div>
 
-      {/* Input Area */}
+      {/* Fixed Input Area */}
       <div className="flex-shrink-0 p-4 border-t-[3px] border-border bg-card">
         <div className="flex gap-2">
           <input
@@ -243,17 +298,36 @@ const ChatAssistant = ({ selectedNodes, onShowNodes }: ChatAssistantProps) => {
                 handleSend();
               }
             }}
-            placeholder="Ask me anything about your data..."
-            className="flex-1 px-4 py-2 bg-secondary border-2 border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-border"
+            placeholder={
+              isThinking
+                ? "AI is thinking..."
+                : isTyping
+                  ? "AI is typing..."
+                  : "Ask me anything..."
+            }
+            disabled={isTyping || isThinking}
+            className="flex-1 px-4 py-2 bg-secondary border-2 border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-border disabled:opacity-60 disabled:cursor-not-allowed"
           />
           <button
             onClick={handleSend}
-            disabled={!message.trim()}
-            className="neo-button flex items-center gap-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={!message.trim() || isTyping || isThinking}
+            className="neo-button flex items-center gap-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed px-4"
           >
-            <Send className="w-4 h-4" />
+            {isThinking || isTyping ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Send className="w-4 h-4" />
+            )}
           </button>
         </div>
+
+        {/* Typing speed indicator (optional - can remove) */}
+        {isTyping && (
+          <div className="mt-2 flex items-center gap-2 text-[10px] text-muted-foreground">
+            <div className="w-1.5 h-1.5 bg-accent-pink rounded-full animate-pulse" />
+            <span>Typing...</span>
+          </div>
+        )}
       </div>
     </div>
   );

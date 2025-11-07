@@ -2,15 +2,14 @@ import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import Header from "@/components/Header";
 import GraphExplorer from "@/components/GraphExplorer";
-import LeftSidebar from "@/components/Leftsidebar";
 import ChatAssistant from "@/components/ChatAssistant";
 import GemDrawer from "@/components/GemDrawer";
 import GemSaveModal, { SavedGem } from "@/components/GemSaveModal";
+import Integrations from "@/components/Integrations";
 
 const Index = () => {
   const [selectedNodes, setSelectedNodes] = useState<string[]>([]);
   const [explorerMode, setExplorerMode] = useState<"mining" | "discovery">("discovery");
-  const [filterBarExpanded, setFilterBarExpanded] = useState(false);
   const [gems, setGems] = useState<SavedGem[]>([]);
   const [gemModalOpen, setGemModalOpen] = useState(false);
   const [selectedNodeForGem, setSelectedNodeForGem] = useState<any>(null);
@@ -22,7 +21,6 @@ const Index = () => {
     const savedMode = localStorage.getItem("graph-explorer-mode") as "mining" | "discovery";
     if (savedMode) setExplorerMode(savedMode);
 
-    // Load saved gems from localStorage
     const savedGems = localStorage.getItem("hidden-gems");
     if (savedGems) {
       try {
@@ -40,10 +38,8 @@ const Index = () => {
 
   useEffect(() => {
     localStorage.setItem("graph-explorer-mode", explorerMode);
-    setFilterBarExpanded(explorerMode === "mining");
   }, [explorerMode]);
 
-  // Persist gems to localStorage whenever they change
   useEffect(() => {
     localStorage.setItem("hidden-gems", JSON.stringify(gems));
   }, [gems]);
@@ -52,13 +48,6 @@ const Index = () => {
     setSelectedNodeForGem(nodeData);
     setSelectedNodesForProspect([]);
     setModalMode("gem");
-    setGemModalOpen(true);
-  };
-
-  const handleCaptureProspect = (nodesData: any[]) => {
-    setSelectedNodesForProspect(nodesData);
-    setSelectedNodeForGem(null);
-    setModalMode("prospect");
     setGemModalOpen(true);
   };
 
@@ -110,17 +99,21 @@ const Index = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
-      <Header
-        onDiscoveryPromptClick={(prompt) => {
-          setExplorerMode("discovery");
-          console.log("Discovery prompt:", prompt);
-        }}
-      />
+    <div className="h-screen w-screen flex flex-col overflow-hidden bg-background">
+      {/* Header - Fixed height */}
+      <div className="flex-shrink-0">
+        <Header
+          onDiscoveryPromptClick={(prompt) => {
+            setExplorerMode("discovery");
+            console.log("Discovery prompt:", prompt);
+          }}
+        />
+      </div>
 
-      <main className="flex-1 flex h-[calc(100vh-4rem)] p-4 gap-4 overflow-hidden">
-        {/* Left Column – Graph Explorer */}
-        <div className="flex-[2] flex flex-col overflow-hidden rounded-xl">
+      {/* Main Content - Takes remaining height */}
+      <div className="flex-1 min-h-0 flex overflow-hidden">
+        {/* Graph Explorer - Takes remaining width */}
+        <div className="flex-1 min-w-0 p-4">
           <GraphExplorer
             selectedNodes={selectedNodes}
             onNodeSelect={setSelectedNodes}
@@ -130,83 +123,87 @@ const Index = () => {
           />
         </div>
 
-        {/* Right Column – Tabbed Assistant/Gems/Integrations */}
-        <div className="flex-[1] flex flex-col overflow-hidden rounded-xl bg-card border border-border">
-          {/* Tabs Header */}
-          <div className="flex items-center justify-between border-b border-border bg-muted/30 text-sm font-semibold">
+        {/* Right Sidebar - Fixed 420px, full height */}
+        <div className="w-[420px] flex-shrink-0 flex flex-col border-l-4 border-border bg-card h-full">
+          {/* Tab Header - Fixed */}
+          <div className="flex-shrink-0 flex items-center border-b-3 border-border bg-muted/30">
             <button
               onClick={() => setActiveTab("assistant")}
-              className={`flex-1 py-3 border-b-2 ${activeTab === "assistant"
-                  ? "border-accent-pink text-foreground"
-                  : "border-transparent text-muted-foreground hover:text-foreground"
+              className={`flex-1 py-3 text-sm font-semibold transition-all ${activeTab === "assistant"
+                  ? "bg-card border-b-4 border-accent-pink text-foreground"
+                  : "text-muted-foreground hover:bg-muted/50"
                 }`}
             >
               <span className="flex items-center justify-center gap-2">
-                <span>💬</span> AI Assistant
+                <span>💬</span> Chat
               </span>
             </button>
 
             <button
               onClick={() => setActiveTab("integrations")}
-              className={`flex-1 py-3 border-b-2 ${activeTab === "integrations"
-                  ? "border-accent-teal text-foreground"
-                  : "border-transparent text-muted-foreground hover:text-foreground"
+              className={`flex-1 py-3 text-sm font-semibold transition-all ${activeTab === "integrations"
+                  ? "bg-card border-b-4 border-accent-teal text-foreground"
+                  : "text-muted-foreground hover:bg-muted/50"
                 }`}
             >
               <span className="flex items-center justify-center gap-2">
-                <span>🔗</span> Integrations
+                <span>🔗</span> Tools
               </span>
             </button>
 
             <button
               onClick={() => setActiveTab("gems")}
-              className={`flex-1 py-3 border-b-2 relative ${activeTab === "gems"
-                  ? "border-accent-pink text-foreground"
-                  : "border-transparent text-muted-foreground hover:text-foreground"
+              className={`flex-1 py-3 text-sm font-semibold transition-all relative ${activeTab === "gems"
+                  ? "bg-card border-b-4 border-accent-pink text-foreground"
+                  : "text-muted-foreground hover:bg-muted/50"
                 }`}
             >
               <span className="flex items-center justify-center gap-2">
-                <span>💎</span> Saved Gems
+                <span>💎</span> Gems
               </span>
               {gems.length > 0 && (
-                <span className="absolute right-3 top-2 w-5 h-5 bg-accent-pink text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-border">
+                <span className="absolute right-2 top-1.5 w-5 h-5 bg-accent-pink text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-border">
                   {gems.length}
                 </span>
               )}
             </button>
           </div>
 
-          {/* Panel Content */}
-          <div className="flex-1 overflow-hidden">
+          {/* Content Area - Scrollable, takes remaining height */}
+          <div className="flex-1 min-h-0 overflow-hidden">
             {activeTab === "assistant" && (
-              <ChatAssistant
-                selectedNodes={selectedNodes}
-                onShowNodes={setSelectedNodes}
-                onToggle={() => { }}
-                expanded={true}
-              />
+              <div className="h-full">
+                <ChatAssistant
+                  selectedNodes={selectedNodes}
+                  onShowNodes={setSelectedNodes}
+                  onToggle={() => { }}
+                  expanded={true}
+                />
+              </div>
             )}
 
             {activeTab === "integrations" && (
-              <div className="neo-card h-full flex items-center justify-center text-sm text-muted-foreground">
-                <p>🔧 Integration analytics and data connectors coming soon...</p>
+              <div className="h-full overflow-y-auto p-4">
+                <Integrations />
               </div>
             )}
 
             {activeTab === "gems" && (
-              <GemDrawer
-                gems={gems}
-                onDeleteGem={handleDeleteGem}
-                onViewNode={handleViewNodeFromGem}
-                onExportGems={handleExportGems}
-                onClearAll={handleClearAllGems}
-              />
+              <div className="h-full overflow-hidden">
+                <GemDrawer
+                  gems={gems}
+                  onDeleteGem={handleDeleteGem}
+                  onViewNode={handleViewNodeFromGem}
+                  onExportGems={handleExportGems}
+                  onClearAll={handleClearAllGems}
+                />
+              </div>
             )}
           </div>
         </div>
-      </main>
+      </div>
 
-      {/* Gem Save Modal */}
+      {/* Modal */}
       <GemSaveModal
         open={gemModalOpen}
         onClose={() => {
